@@ -1,0 +1,2273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ODAX — DAX Options Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0d12; --panel:#12161d; --panel-2:#171c25; --line:#232a35;
+    --text:#f2f5f9; --text-dim:#93a0b3; --text-faint:#5b6577;
+    --call:#4c96ff; --put:#ffab2e; --maxpain:#f0cd6c; --spot:#7dd8ff;
+    --green:#3ecf8e; --red:#f2545b; --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  #app{max-width:1440px;margin:0 auto;padding:0 20px 60px;}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;margin-bottom:22px;border-bottom:1px solid var(--line);}
+  .topbar .logo{display:flex;align-items:baseline;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:800;font-size:15px;letter-spacing:-0.01em;color:var(--text-dim);}
+  .topbar .logo b{color:var(--text);}
+  .topbar .status-pill{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;}
+  .topbar .status-pill .p{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite;}
+  @keyframes pulse{0%{opacity:1;}50%{opacity:.4;}100%{opacity:1;}}
+
+  .header{margin-bottom:20px;}
+  .brand .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--text-faint);text-transform:uppercase;}
+  .brand h1{margin:4px 0 0;font-size:27px;font-weight:800;letter-spacing:-0.01em;display:flex;align-items:baseline;gap:10px;}
+  .brand h1 .ticker{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--text-dim);border:1px solid var(--line);border-radius:6px;padding:2px 8px;}
+
+  .tabs-group{margin-bottom:6px;}
+  .tabs-group-label{font-size:10.5px;color:var(--text-faint);letter-spacing:.08em;text-transform:uppercase;margin:10px 0 6px;font-family:'JetBrains Mono',monospace;}
+  .expiry-group{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;}
+  .expiry-group summary{
+    cursor:pointer;padding:12px 16px;font-size:12.5px;font-weight:700;color:var(--text);
+    display:flex;align-items:center;gap:9px;user-select:none;list-style:none;
+    font-family:'JetBrains Mono',monospace;letter-spacing:.03em;
+  }
+  .expiry-group summary::-webkit-details-marker{display:none;}
+  .expiry-group summary:before{content:'▸';color:var(--text-faint);transition:.15s;font-size:11px;}
+  .expiry-group[open] summary:before{transform:rotate(90deg);}
+  .expiry-group summary .count{font-size:10.5px;color:var(--text-faint);font-weight:500;margin-left:2px;}
+  .expiry-group summary:hover{background:var(--panel-2);}
+  .expiry-group .tabs-row{padding:2px 16px 14px;border-top:1px solid var(--line);padding-top:12px;}
+  .tabs-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .tabs-row.bottom-border{padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--line);}
+  .tab{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--text-dim);cursor:pointer;transition:.12s ease;white-space:nowrap;display:flex;align-items:center;gap:7px;}
+  .tab:hover{border-color:#3d4658;color:var(--text);}
+  .tab.active{background:var(--call);border-color:var(--call);color:#fff;}
+  .tab .srcdot{width:6px;height:6px;border-radius:50%;flex:none;}
+  .tab .srcdot.real{background:var(--green);}
+  .tab .srcdot.demo{background:var(--text-faint);}
+  .tab.active .srcdot.real{background:#fff;box-shadow:0 0 6px #fff;}
+  .tab.active .srcdot.demo{background:#ffffff88;}
+  .tab .sub{opacity:.65;font-size:10px;}
+
+  .controls-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px;flex-wrap:wrap;}
+  .legend{display:flex;gap:16px;font-size:12.5px;color:var(--text-dim);align-items:center;flex-wrap:wrap;}
+  .legend span{display:flex;align-items:center;gap:6px;}
+  .swatch{width:10px;height:10px;border-radius:3px;display:inline-block;}
+  .refresh-btn{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;padding:8px 13px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);cursor:pointer;}
+  .refresh-btn:hover{border-color:#3d4658;}
+
+  .status-box{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:11px 15px;margin-bottom:14px;font-size:12px;color:var(--text-dim);}
+  .status-box .sdot{width:7px;height:7px;border-radius:50%;flex:none;}
+  .status-box .sdot.ok{background:var(--green);box-shadow:0 0 7px var(--green);}
+  .status-box .sdot.err{background:var(--red);box-shadow:0 0 7px var(--red);}
+  .status-box .sdot.pending{background:var(--text-faint);}
+  .status-box b{color:var(--text);}
+
+  .stats{display:grid;grid-template-columns:repeat(8,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:18px;}
+  .stat{background:var(--panel);padding:13px 14px;}
+  .stat .k{font-size:10.5px;color:var(--text-faint);letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px;font-weight:600;}
+  .stat .v{font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:800;color:var(--text);}
+  .stat .v.put{color:var(--put);}
+  .stat .v.call{color:var(--call);}
+  .stat .v.gold{color:var(--maxpain);}
+  .stat .src{font-size:9.5px;color:var(--text-faint);font-weight:600;margin-left:5px;text-transform:uppercase;letter-spacing:.03em;}
+  @media(max-width:900px){.stats{grid-template-columns:repeat(3,1fr);}}
+  @media(max-width:520px){.stats{grid-template-columns:repeat(2,1fr);} .brand h1{font-size:21px;}}
+
+  .chart-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px 5px;margin-bottom:11px;position:relative;}
+  .chart-title{font-size:13.5px;color:var(--text-dim);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;font-weight:600;flex-wrap:wrap;gap:8px;}
+  .chart-title b{color:var(--text);font-weight:700;}
+  .zoom-controls{display:flex;align-items:center;gap:5px;}
+  .metric-toggle{display:flex;gap:3px;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:3px;margin-right:6px;}
+  .metric-btn{
+    padding:5px 11px;border-radius:5px;border:none;background:none;color:var(--text-dim);
+    cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;
+  }
+  .metric-btn.active{background:var(--call);color:#fff;}
+  .metric-btn:not(.active):hover{color:var(--text);}
+  .gex-caption{font-size:10.5px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;margin-left:6px;}
+  .zoom-btn{
+    width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:var(--panel-2);
+    color:var(--text-dim);cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;line-height:1;padding:0;
+  }
+  .zoom-btn:hover{border-color:#3d4658;color:var(--text);}
+  .zoom-reset{font-size:10.5px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;padding:0 6px;cursor:pointer;user-select:none;}
+  .zoom-reset:hover{color:var(--text-dim);}
+  .zoom-hint{font-size:10px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;}
+  .heatmap-legend{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;margin:4px 0 12px;}
+  .heat-gradient{width:150px;height:10px;border-radius:4px;border:1px solid var(--line);}
+  .heatmap-scroll{overflow:auto;max-height:640px;border:1px solid var(--line);border-radius:7px;margin-bottom:8px;}
+  .heatmap-table{border-collapse:separate;border-spacing:0;font-family:'JetBrains Mono',monospace;font-size:11.5px;white-space:nowrap;}
+  .heatmap-table th,.heatmap-table td{padding:0;text-align:center;}
+  .heatmap-table thead th{position:sticky;top:0;background:var(--panel-2);color:var(--text-dim);font-weight:700;z-index:2;border-bottom:1px solid var(--line);padding:6px 8px;}
+  .heatmap-table thead tr.heat-date-row th{font-size:10.5px;}
+  .heatmap-table thead tr.heat-side-row th{font-size:9.5px;color:var(--text-faint);padding:3px 6px;top:26px;}
+  .heatmap-table thead th.heat-strike-head{position:sticky;left:0;top:0;z-index:3;background:var(--panel-2);text-align:left;}
+  .heatmap-table thead th.heat-strike-head .sort-arrows{display:inline-flex;flex-direction:column;gap:0;margin-left:5px;vertical-align:middle;}
+  .heatmap-table thead th.heat-strike-head .sort-arrow{cursor:pointer;line-height:.75;font-size:9px;color:var(--text-faint);}
+  .heatmap-table thead th.heat-strike-head .sort-arrow.active{color:var(--call);}
+  .heatmap-table thead th.heat-strike-head .sort-arrow:hover{color:var(--text);}
+  .heatmap-table tbody th{position:sticky;left:0;background:var(--panel);color:var(--text-dim);font-weight:700;z-index:1;border-right:1px solid var(--line);padding:4px 10px;text-align:left;}
+  .heat-atm-badge{display:inline-block;border:1.5px solid var(--spot);background:rgba(125,216,255,.14);color:var(--spot);font-weight:800;padding:1px 7px;border-radius:4px;}
+  .heatmap-table td{min-width:34px;height:24px;color:var(--text);border-right:1px solid var(--line);border-bottom:1px solid #1a1f29;}
+  .heatmap-table tbody tr:hover th,.heatmap-table tbody tr:hover td{background:#2b3747 !important;color:#fff;}
+  .heatmap-table td.heat-empty{color:var(--text-faint);}
+  .heatmap-table td.heat-side-border{border-right-color:var(--line);}
+  .heatmap-table thead th.heat-group-border,.heatmap-table td.heat-group-border{border-right:1px solid var(--line);}
+  svg{display:block;width:100%;height:auto;overflow:visible;touch-action:none;}
+  .axis-label{fill:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:500;}
+  .grid-line{stroke:var(--line);stroke-width:1;}
+  .strike-label{fill:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;}
+  .flag{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:800;fill:#0a0d12;}
+  .crosshair{stroke:#ffffff;stroke-width:1;stroke-dasharray:3,3;opacity:0;pointer-events:none;}
+
+  #tooltip{position:absolute;top:32px;left:110px;pointer-events:none;background:#1c222c;border:1px solid #333c4c;border-radius:9px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--text);display:none;z-index:20;box-shadow:0 10px 28px rgba(0,0,0,.55);line-height:1.7;white-space:nowrap;}
+  #tooltip .tt-strike{color:var(--maxpain);font-weight:800;font-size:13.5px;margin-bottom:5px;display:block;}
+  #tooltip .row{display:flex;justify-content:space-between;gap:18px;}
+  #tooltip .row b{font-weight:700;}
+  #tooltip .row.call b{color:var(--call);}
+  #tooltip .row.put b{color:var(--put);}
+  #tooltip .sec{color:var(--text-faint);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin:6px 0 2px;}
+
+  details.import{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:0;margin-bottom:16px;}
+  details.import summary{cursor:pointer;padding:13px 16px;font-size:13px;color:var(--text-dim);display:flex;align-items:center;gap:8px;user-select:none;list-style:none;font-weight:600;}
+  details.import summary::-webkit-details-marker{display:none;}
+  details.import summary:before{content:'▸';color:var(--text-faint);transition:.15s;}
+  details.import[open] summary:before{transform:rotate(90deg);}
+  .import-body{padding:0 16px 16px;border-top:1px solid var(--line);}
+  .import-body p{font-size:12.5px;color:var(--text-dim);line-height:1.65;margin:12px 0;}
+  .import-body code{background:var(--panel-2);padding:1px 6px;border-radius:4px;font-size:11.5px;color:var(--maxpain);}
+  textarea{width:100%;min-height:120px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px;resize:vertical;outline:none;}
+  .import-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;}
+  button{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;padding:9px 15px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);cursor:pointer;transition:.12s;}
+  button:hover{border-color:#3d4658;}
+  button.primary{background:var(--call);border-color:var(--call);color:#fff;}
+  button.primary:hover{opacity:.9;}
+  button.danger{color:var(--red);}
+  .status-msg{font-size:12px;color:var(--green);margin-left:4px;font-weight:600;}
+  .code-block{position:relative;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text-dim);white-space:pre;overflow-x:auto;margin:8px 0;}
+
+  .note{font-size:12px;color:var(--text-dim);line-height:1.7;margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;}
+  .note b{color:var(--text);}
+  .footer{text-align:center;font-size:11px;color:var(--text-faint);margin-top:24px;font-family:'JetBrains Mono',monospace;}
+
+  .page-nav{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:4px;}
+  .page-nav-btn{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;padding:7px 16px;border-radius:6px;border:none;background:none;color:var(--text-dim);cursor:pointer;transition:.12s;}
+  .page-nav-btn:hover{color:var(--text);}
+  .page-nav-btn.active{background:var(--call);color:#fff;}
+
+  .comp-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .comp-table thead th{
+    text-align:left;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text-faint);
+    text-transform:uppercase;letter-spacing:.05em;font-weight:600;padding:12px 16px;border-bottom:1px solid var(--line);
+  }
+  .comp-table thead th.num{text-align:right;}
+  .comp-table tbody td{padding:11px 16px;border-bottom:1px solid var(--line);}
+  .comp-table tbody tr:last-child td{border-bottom:none;}
+  .comp-table tbody tr:hover{background:var(--panel-2);}
+  .comp-table .rank{font-family:'JetBrains Mono',monospace;color:var(--text-faint);font-size:12px;}
+  .comp-table .cname{font-weight:600;color:var(--text);}
+  .comp-table .cticker{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-faint);margin-left:8px;}
+  .comp-table .num{text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap;}
+  .comp-table .weight{color:var(--text-dim);font-weight:600;}
+  .comp-table .chg.up{color:var(--green);}
+  .comp-table .chg.down{color:var(--red);}
+  .comp-table .chg.flat{color:var(--text-faint);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <div class="logo">ODAX <b>Options Terminal</b></div>
+    <div class="page-nav">
+      <button class="page-nav-btn active" id="navOptionsBtn">Options</button>
+      <button class="page-nav-btn" id="navComponentsBtn">Components</button>
+    </div>
+    <div class="status-pill"><span class="p"></span><span id="pollLabel">ODAX · auto-refresh every 15 min</span></div>
+  </div>
+
+  <div id="pageOptions">
+  <div class="header">
+    <div class="brand">
+      <div class="eyebrow">Eurex · Index Options</div>
+      <h1>DAX <span class="ticker">GER40 · ODAX</span> <span class="ticker" id="headerPrice" style="color:var(--text);border-color:#2d3648;">DAX —</span></h1>
+    </div>
+  </div>
+
+  <details class="expiry-group" id="groupWeekly">
+    <summary>Weekly Options (W) <span class="count" id="countWeekly"></span></summary>
+    <div class="tabs-row" id="tabsRowWeekly"></div>
+  </details>
+  <details class="expiry-group" id="groupMonthly">
+    <summary>Monthly Options (M) <span class="count" id="countMonthly"></span></summary>
+    <div class="tabs-row" id="tabsRowMonthly"></div>
+  </details>
+
+  <div class="status-box" id="refApiStatus" style="font-size:11px;padding:8px 15px;"></div>
+
+  <div class="controls-row">
+    <div class="legend" id="chartLegend">
+      <span><i class="swatch" style="background:var(--call)"></i>Call</span>
+      <span><i class="swatch" style="background:var(--put)"></i>Put</span>
+      <span><i class="swatch" style="background:var(--maxpain)"></i>Max Pain</span>
+      <span class="zoom-hint">mouse wheel / pinch to zoom · drag to pan</span>
+    </div>
+    <button class="refresh-btn" id="btnRefreshNow">↻ Refresh from eurex.com now</button>
+  </div>
+
+  <div class="status-box" id="statusBox"></div>
+
+  <div class="stats" id="statsRow"></div>
+
+  <div class="chart-card" style="position:relative;">
+    <div class="chart-title">
+      <div><b id="topChartLabel">Open Interest</b> <span id="chartExpiry" class="mono"></span><span class="gex-caption" id="gexCaption" style="display:none;"></span><span id="heatmapMetricLabel" class="mono" style="display:none;"></span></div>
+      <div class="zoom-controls">
+        <div class="metric-toggle">
+          <button class="metric-btn active" id="metricOiBtn">OI</button>
+          <button class="metric-btn" id="metricHeatmapBtn">HEATMAP</button>
+          <button class="metric-btn" id="metricGexBtn">GEX</button>
+        </div>
+        <div class="metric-toggle" id="heatmapSubToggle" style="display:none;">
+          <button class="metric-btn active" id="heatmapOiBtn">OI</button>
+          <button class="metric-btn" id="heatmapOiChangeBtn">OI CHANGE</button>
+          <button class="metric-btn" id="heatmapVolBtn">VOLUME</button>
+        </div>
+        <span class="zoom-reset" id="zoomResetBtn">reset zoom</span>
+        <button class="zoom-btn" id="zoomOutBtn" title="Zoom out">−</button>
+        <button class="zoom-btn" id="zoomInBtn" title="Zoom in">+</button>
+      </div>
+    </div>
+    <div id="tooltip"></div>
+    <svg id="chartTop" viewBox="0 0 1200 320"></svg>
+    <div id="heatmapWrap" style="display:none;">
+      <div class="heatmap-legend" id="heatmapLegend"></div>
+      <div class="heatmap-scroll" id="heatmapScroll"></div>
+    </div>
+  </div>
+
+  <div class="chart-card" id="volumeCard">
+    <div class="chart-title"><b>Volume</b></div>
+    <svg id="chartBottom" viewBox="0 0 1200 220"></svg>
+  </div>
+
+  <details class="import" id="importPanel">
+    <summary>Import / manual data update (current tab: <span id="importExpLabel" class="mono"></span>)</summary>
+    <div class="import-body">
+      <p>
+        The page tries to fetch data directly from <code>eurex.com/api/v1/overallstatistics</code> for each
+        date tab on load, then every 15 minutes while it stays open. If that fails (e.g. eurex blocks the
+        request from another domain via CORS — an honest note appears under the chart), paste data here
+        manually using one of two methods:
+      </p>
+      <p>
+        <b>Method 1 — raw Eurex response.</b> DevTools → Network → find the <code>overallstatistics</code>
+        request → Response tab → select all → copy → paste below as-is (JSON).<br>
+        <b>Method 2 — CSV.</b> One row per line: <code>strike,callOI,putOI,callVol,putVol</code>
+      </p>
+      <textarea id="dataInput" placeholder='{"dataRowsCall":[...],"dataRowsPut":[...],"header":{"date":"20260821"}}&#10;or CSV:&#10;26200,540,210,80,340&#10;26300,120,610,40,90'></textarea>
+      <div class="import-actions">
+        <button class="primary" id="btnLoad">Save and build chart</button>
+        <button class="danger" id="btnClear">Clear tab</button>
+        <span class="status-msg" id="statusMsg"></span>
+      </div>
+    </div>
+  </details>
+
+  <div class="note" id="corsNote" style="display:none;">
+    ⚠ <b>Looks like a CORS block.</b> Confirmed live: eurex.com responds 200 OK but never adds
+    <code>Access-Control-Allow-Origin</code> for any origin — the browser discards the response regardless of
+    whether this file is opened locally or from a real domain. <b>Also important:</b> besides CORS, this
+    endpoint has a second, independent check — without a browser <code>Referer</code> header pointing at
+    eurex.com's own statistics page, it returns an empty body. Spoofing <code>Referer</code> from a browser
+    fetch() is impossible by design (one of the few headers JS can't override) — so the only way around it is
+    a proxy server that sets both headers itself:
+    <div class="code-block">export default {
+  async fetch(req) {
+    const url = new URL(req.url);
+    const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" };
+    let target;
+    if (url.pathname.startsWith("/yproxy")) {
+      // live DAX index quote (Yahoo Finance) — used for the live price layer
+      target = "https://query1.finance.yahoo.com" + url.pathname.replace("/yproxy","") + url.search;
+    } else {
+      target = "https://www.eurex.com" + url.pathname.replace("/proxy","") + url.search;
+      headers["Referer"] = "https://www.eurex.com/ex-en/data/statistics/market-statistics-online";
+    }
+    const r = await fetch(target, { headers });
+    return new Response(await r.text(), {
+      status: r.status,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    });
+  }
+}</div>
+    Deploys free in 5 minutes on cloudflare.com → Workers &amp; Pages → Create Worker → paste the code → Deploy.
+    Take the resulting address (e.g. <span class="mono">https://your-worker.workers.dev/proxy</span>) and paste
+    it into the "Proxy URL" field below, then click "Save" — auto-refresh will then genuinely work. This same
+    worker also carries the live DAX index quote (via <span class="mono">/yproxy</span>) that the underlying
+    price uses — if you already deployed the old version, just replace its code with this one and redeploy;
+    the "Proxy URL" field doesn't need to change.
+    <div class="field" style="margin-top:12px;">
+      <label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:5px;">Proxy URL (e.g. https://your-worker.workers.dev/proxy)</label>
+      <div style="display:flex;gap:8px;">
+        <input id="proxyUrlInput" type="text" placeholder="https://your-worker.workers.dev/proxy" style="flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;color:var(--text);padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;">
+        <button class="primary" id="btnSaveProxy">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+
+    ✓ <b>About auto-refresh and dates.</b> The tabs above are the real upcoming ODAX expiry Fridays,
+    computed right in the browser (weekly + monthly — third Friday of the month), not a made-up list. For
+    each date the page requests <code>eurex.com/api/v1/overallstatistics/70044?productdate=&lt;expiry
+    date&gt;&amp;busdate=&lt;last trading day&gt;&amp;contracttype=W|M</code> — on load and then every 15
+    minutes. <b>Confirmed live (not a guess):</b> eurex.com responds to these requests normally (200 OK, real
+    data comes back), but never adds an <code>Access-Control-Allow-Origin</code> header for any origin — so the
+    browser discards the response no matter whether this file is opened locally or from a real domain. The only
+    working workaround is the proxy in the note above.
+  </div>
+
+  <div class="note">
+    ✓ <b>About the DAX price.</b> Three layers, per priority: (1) a real FDAX future settlement with the
+    exact same expiry date, via the free Eurex Reference Data API — usually only matches quarterly dates,
+    since the future itself is quarterly-only, unlike the options; (2) <b>put-call parity</b>: <code>F ≈
+    strike + CallSettlement − PutSettlement</code>, median across all strikes priced on both sides — works
+    for any expiry, accurate to within a point; (3) highest-OI strike, last resort. On top of whichever of
+    those resolves, a <b>live DAX index quote</b> (Yahoo, <code>^GDAXI</code>) is added as
+    <code>today's live move</code> so the number tracks the market during the day instead of sitting frozen
+    at yesterday's settlement — refreshed hourly, plus on every manual "Refresh" click. The small tag next to
+    the price shows <code>LIVE</code> when that layer is active, or the plain settlement method name
+    (<code>FUTURE</code>/<code>PARITY</code>/<code>EST</code>) when the live quote isn't reachable — in which
+    case the number is EOD-only and won't move until the next session, by design, not a bug. The live quote
+    is fetched the same way as the OI data: direct browser fetch first, falling back to the proxy above (via
+    its <code>/yproxy</code> route) if that's blocked.
+  </div>
+
+  <div class="note">
+    🧪 <b>Experiment: cross-checking dates with the Eurex Reference Data API.</b> Separately from OI/Volume,
+    the page tries to confirm the expiry dates themselves via the official free <code>eurex-prod-graphql</code>
+    (uses the shared key Eurex itself publishes, not a personal one — safer, since anyone could open this
+    file). Since the exact field schema isn't documented anywhere, the page asks the schema itself first
+    (GraphQL introspection) instead of guessing field names — guess wrong and the whole query fails outright.
+    Result shows in the status line under the tabs; confirmed dates are marked "✓". This part is entirely
+    optional — if the experiment fails, the tabs keep working off the computed dates as before.
+  </div>
+
+  <div class="footer">ODAX · MULTIPLIER €5 PER INDEX POINT · not investment advice</div>
+  </div>
+
+  <div id="pageComponents" style="display:none;">
+    <div class="header">
+      <div class="brand">
+        <div class="eyebrow">DAX 40 · Index Composition</div>
+        <h1>Components <span class="ticker">by index weight</span></h1>
+      </div>
+    </div>
+
+    <div class="controls-row">
+      <div class="legend"><span>Weights as of 20 Jun 2025 (published snapshot) · % change is live</span></div>
+      <button class="refresh-btn" id="btnRefreshComponents">↻ Refresh quotes now</button>
+    </div>
+
+    <div class="status-box" id="compStatusBox"></div>
+
+    <div class="chart-card" style="padding:0;overflow:hidden;">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th style="width:34px;">#</th>
+            <th>Company</th>
+            <th class="num">Weight</th>
+            <th class="num">Today</th>
+          </tr>
+        </thead>
+        <tbody id="compTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      ✓ <b>About this page.</b> Weights are the published DAX 40 index weightings (free-float
+      market-cap based, as officially calculated by STOXX/Deutsche Börse) — a dated snapshot rather
+      than a live figure, since no free source recomputes official weights in real time; shown "as
+      of" date is in the table header. Today's % change per company is a genuine live quote via
+      Twelve Data, fetched one company at a time (their free tier appears to only support single-symbol
+      requests, not the comma-batched multi-symbol call — batching consistently returned nothing usable
+      on this key, so single calls it is) — a full refresh across all 40 names takes a few minutes,
+      filling in progressively rather than waiting for everything at once, then repeats hourly plus on
+      manual refresh. Symbols are queried as <code>TICKER:XETR</code> (Twelve Data's own exchange-qualified
+      format for Xetra, per their docs — not the <code>.DE</code> suffix Yahoo-style tickers shown in the
+      table, which are just for display) — Airbus uses <code>:XPAR</code> since it trades primarily on
+      Euronext Paris. If any symbol is still wrong you'll see Twelve Data's own error for that specific
+      row (hover it), not a silently wrong number.
+    </div>
+
+    <div class="footer">DAX® is a registered trademark of Deutsche Börse AG · not investment advice</div>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================
+   CONFIG
+========================================================= */
+const EUREX_BASE = 'https://www.eurex.com';
+const EUREX_PRODUCT_ID = '70044'; // ODAX statsId (confirmed real, from your captured examples)
+const POLL_MS = 15 * 60 * 1000;   // 15 minutes
+const CONTRACT_TYPE_LABEL = { M:'Monthly', W:'Weekly', ME:'EndOfMonth', D:'Daily', F:'Flex' };
+// Only these contractType codes get their own tab group (per your request: Weekly + Monthly, no Quarterly).
+// Daily (D) intentionally excluded: real-world testing showed ODAX has no
+// standalone daily-expiry chain distinct from Weekly/Monthly — the "D" tag
+// in the overview response marks every business day, but the detail call
+// only returns real dataRowsCall/dataRowsPut when the date also happens to
+// be an actual listed W or M expiry. Eurex's current 0DTE daily-options push
+// is for EURO STOXX 50 (OESX), not DAX. Kept out to avoid a section that's
+// either empty or a duplicate of Weekly/Monthly.
+// (no per-contract-type filter needed here anymore — see note above)
+
+// Proxy needed because eurex.com's overallstatistics endpoint (a) sends no
+// Access-Control-Allow-Origin header at all (confirmed via your DevTools
+// console — CORS blocks it from any third-party origin, hosted or local),
+// and (b) separately returns an EMPTY body unless the request carries a
+// Referer header pointing at eurex.com's own statistics page — something a
+// browser fetch() can never spoof, by design. Both problems are only
+// solvable server-side, hence the Worker proxy in the note above.
+//
+// Baked in as a default so this file works out of the box on any browser
+// profile/device/Google account — localStorage (below) is per-profile, so
+// without a hardcoded default here, a fresh profile has nothing saved and
+// silently falls back to the broken direct fetch. Override via the "Proxy
+// URL" field any time (e.g. if you deploy a different worker) — that saved
+// value always wins over this default.
+const DEFAULT_PROXY_BASE = 'https://tiny-silence-7ea8.vsevolod-dyubchenko.workers.dev/proxy';
+function getProxyBase(){ try{ return localStorage.getItem('odax:proxyBase') || DEFAULT_PROXY_BASE; }catch(e){ return DEFAULT_PROXY_BASE; } }
+function setProxyBase(v){ try{ localStorage.setItem('odax:proxyBase', v); }catch(e){} }
+function eurexUrl(path){
+  const proxy = getProxyBase();
+  return (proxy ? proxy.replace(/\/$/,'') : EUREX_BASE) + path;
+}
+
+// Official free public Reference Data API (GraphQL). Using your own dedicated
+// key here (higher rate limit than the shared public one) — since you've
+// confirmed this is your personal key from the Deutsche Börse developer
+// portal and you won't be sharing this file. If you ever do share it, swap
+// this back to the public shared key: 68cdafd2-c5c1-49be-8558-37244ab4f513
+const EUREX_GRAPHQL_URL = 'https://api.developer.deutsche-boerse.com/eurex-prod-graphql/';
+const EUREX_GRAPHQL_KEY = '895442d5-7545-408b-8be6-e90052626aad';
+
+/* =========================================================
+   EXPIRY DATES
+   Primary source: Eurex's own "overview" call, which lists the real,
+   currently-listed expiries and trading dates — no guessing needed.
+   Fallback (only if overview fails/unreachable): the every-Friday /
+   third-Friday convention computed locally, same as before.
+========================================================= */
+function thirdFriday(year, monthIdx){
+  const d = new Date(year, monthIdx, 1);
+  const firstFridayOffset = (5 - d.getDay() + 7) % 7;
+  const firstFriday = 1 + firstFridayOffset;
+  return new Date(year, monthIdx, firstFriday + 14);
+}
+const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+function fmtDate(d){ return `${String(d.getDate()).padStart(2,'0')} ${MONTH_ABBR[d.getMonth()]}`; }
+function ymd(d){ return d.getFullYear().toString() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0'); }
+function ymdStrToDate(s){ return new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8)); }
+function sameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+
+function buildExpiries(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const offset = (5 - today.getDay() + 7) % 7;
+  const firstFriday = new Date(today); firstFriday.setDate(today.getDate()+offset);
+  const fridays = [];
+  for(let i=0;i<20;i++){
+    const d = new Date(firstFriday); d.setDate(firstFriday.getDate()+i*7);
+    const tf = thirdFriday(d.getFullYear(), d.getMonth());
+    fridays.push({ date:d, isMonthly: sameDay(d,tf) });
+  }
+  const weekly = fridays.filter(f=>!f.isMonthly).slice(0,6).map(f=>({
+    key:'W-'+ymd(f.date), date:f.date, type:'W', label:fmtDate(f.date)
+  }));
+  const monthly = fridays.filter(f=>f.isMonthly).slice(0,3).map(f=>({
+    key:'M-'+ymd(f.date), date:f.date, type:'M', label:fmtDate(f.date)
+  }));
+  return { weekly, monthly };
+}
+let { weekly: WEEKLY_EXP, monthly: MONTHLY_EXP } = buildExpiries();
+let ALL_EXPIRIES = [...WEEKLY_EXP, ...MONTHLY_EXP];
+const confirmedKeys = new Set(); // filled by verifyExpiriesViaReferenceApi() when a date is confirmed against Eurex's own reference data
+
+let activeKey = WEEKLY_EXP[0].key;
+
+/* =========================================================
+   OVERVIEW CALL — only reliable purpose is telling us the real current
+   trading/session date (`header.tradingDates[0]`), which detail calls
+   need as `busdate`. An earlier version of this also tried to rebuild
+   the expiry-tab list from an assumed `dataRows` array in this same
+   response — confirmed live that field doesn't exist in the real
+   response at all (only `header` + `meta`), so that never once worked;
+   removed rather than left as permanently-dead code. The tab dates stay
+   the algorithmic Friday / third-Friday convention from buildExpiries()
+   — which is how these things are actually scheduled, not a fallback
+   standing in for something better.
+========================================================= */
+async function fetchOverview(){
+  const today = new Date();
+  const url = eurexUrl(`/api/v1/overallstatistics/${EUREX_PRODUCT_ID}?busdate=${ymd(mostRecentBusinessDay(today))}&filtertype=overview`);
+  const res = await fetch(url, { cache:'no-store' });
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const json = await res.json();
+  const tradingDates = (json.header && json.header.tradingDates) || [];
+  if(!tradingDates.length) throw new Error('empty header.tradingDates in overview');
+  const [dd,mm,yyyy] = tradingDates[0].split(' ')[0].split('-');
+  return yyyy+mm+dd; // latest real trading/session date, as busdate (YYYYMMDD)
+}
+
+/* =========================================================
+   EUREX REFERENCE DATA API (official free public GraphQL API)
+   Used ONLY to cross-check that the weekly/third-Friday expiry
+   dates computed above actually match Eurex's own contract
+   calendar for ODAX. Does NOT provide OI/Volume — Eurex's own
+   docs confirm this API only covers Products/Contracts/Trading
+   hours/Expirations reference data, not market statistics.
+   Since the exact field names aren't documented publicly, this
+   introspects the schema first instead of guessing field names
+   blindly (a wrong guessed field name would fail the whole
+   GraphQL query). Fully non-blocking and best-effort: if any
+   step fails, the algorithmically computed dates above are used
+   as-is, unaffected.
+========================================================= */
+async function graphqlRequest(query){
+  const res = await fetch(EUREX_GRAPHQL_URL, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'X-DBP-APIKEY': EUREX_GRAPHQL_KEY },
+    body: JSON.stringify({ query })
+  });
+  const json = await res.json();
+  if(json.errors && json.errors.length) throw new Error(json.errors[0].message || 'GraphQL error');
+  return json.data;
+}
+
+function setRefApiStatus(kind, text){
+  const box = document.getElementById('refApiStatus');
+  const cls = kind==='ok'?'ok':kind==='err'?'err':'pending';
+  box.innerHTML = `<span class="sdot ${cls}"></span><span>Eurex Reference Data API: ${text}</span>`;
+}
+
+async function discoverContractDateFields(){
+  // 1) find the actual type name behind Contracts().data (don't assume it's called "Contract")
+  const schema = await graphqlRequest(`{ __schema { types { name } } }`);
+  const names = (schema.__schema.types || []).map(t=>t.name).filter(Boolean);
+  const candidates = names.filter(n => /contract/i.test(n) && !n.startsWith('__'));
+  if(!candidates.length) throw new Error('schema has no type with "Contract" in its name');
+  // prefer an exact "Contract" match if present, else the shortest matching name
+  const typeName = candidates.includes('Contract') ? 'Contract' : candidates.sort((a,b)=>a.length-b.length)[0];
+
+  const typeInfo = await graphqlRequest(`{ __type(name: "${typeName}") { fields { name } } }`);
+  const fields = (typeInfo.__type && typeInfo.__type.fields || []).map(f=>f.name);
+  const dateFields = fields.filter(f => /date|expir|maturity|settle|lasttrading/i.test(f));
+  if(!dateFields.length) throw new Error(`type ${typeName} found, but it has no date-like fields (total fields: ${fields.length})`);
+  return { typeName, dateFields };
+}
+
+async function verifyExpiriesViaReferenceApi(){
+  setRefApiStatus('pending', 'connecting (experimental)…');
+  try{
+    const { dateFields } = await discoverContractDateFields();
+    const fieldList = dateFields.slice(0,6).join('\n          ');
+    const data = await graphqlRequest(`query{
+      Contracts(filter: { Product: { eq: "ODAX" } }){
+        date
+        data{
+          Product
+          Contract
+          ${fieldList}
+        }
+      }
+    }`);
+    const rows = (data.Contracts && data.Contracts.data) || [];
+    if(!rows.length) throw new Error('empty contract list for ODAX');
+
+    // collect every parseable date found in any of the candidate fields
+    const foundDates = new Set();
+    rows.forEach(row=>{
+      dateFields.forEach(f=>{
+        const v = row[f];
+        if(!v) return;
+        const d = new Date(v);
+        if(!isNaN(d)) foundDates.add(ymd(d));
+      });
+    });
+    if(!foundDates.size) throw new Error('date fields found, but no value parsed as a date');
+
+    let matches = 0;
+    ALL_EXPIRIES.forEach(exp=>{
+      if(foundDates.has(ymd(exp.date))){ confirmedKeys.add(exp.key); matches++; }
+    });
+    if(matches>0){
+      setRefApiStatus('ok', `confirmed ${matches} of ${ALL_EXPIRIES.length} expiry dates directly against Eurex data ✓`);
+    } else {
+      setRefApiStatus('err', `connected, but none of the computed dates matched Eurex's calendar (${rows.length} ODAX contracts in response) — using computed dates`);
+    }
+    renderTabs();
+  }catch(err){
+    const hint = err.message === 'Failed to fetch'
+      ? ' — "Failed to fetch" means either CORS or the address is currently unreachable/moved (Eurex migrated this API from AWS to GCP); check the Network tab in DevTools: if the request fails with no response at all, that\'s a network issue, not CORS'
+      : '';
+    setRefApiStatus('err', `experiment failed (${err.message})${hint} — this doesn't affect OI/Volume, dates remain computed by the standard convention`);
+  }
+}
+const dataStore = {};   // key -> array of {strike,callOI,putOI,callVol,putVol,callSettle,putSettle}
+const metaStore = {};   // key -> {source, dateLabel, checkedAt, error}
+
+/* =========================================================
+   UNDERLYING PRICE — spec §2 priority order:
+     1) real same-expiry FDAX future settlement (GraphQL Reference Data API)
+     2) put-call parity forward: F ≈ K + CallSettle − PutSettle, median across strikes
+     3) fallback: highest-OI strike
+   Futures map refreshes hourly (per spec §8: "hourly auto-refresh"), independent
+   of the 15-min OI/Volume poll — Eurex settlement prices only change once a day
+   anyway, hourly is just how promptly we notice a new session.
+========================================================= */
+const PRICE_POLL_MS = 60 * 60 * 1000; // 1 hour, per spec §8
+let futuresMap = new Map(); // expiryYmd(8-digit string) -> settlement price
+let futuresMapCheckedAt = null;
+let futuresMapError = null;
+
+async function refreshFuturesMap(){
+  try{
+    const data = await graphqlRequest(`{ Contracts(filter:{Product:{eq:"FDAX"}}){ data { ExpirationDate PreviousDaySettlementPrice } } }`);
+    const rows = (data.Contracts && data.Contracts.data) || [];
+    const map = new Map();
+    rows.forEach(r=>{
+      if(!r.ExpirationDate || typeof r.PreviousDaySettlementPrice!=='number' || r.PreviousDaySettlementPrice<=0) return;
+      const d = new Date(r.ExpirationDate);
+      if(isNaN(d)) return;
+      map.set(ymd(d), r.PreviousDaySettlementPrice);
+    });
+    if(map.size){ futuresMap = map; futuresMapError = null; }
+    else futuresMapError = 'empty FDAX contract list';
+  }catch(err){
+    futuresMapError = err.message;
+  }
+  futuresMapCheckedAt = Date.now();
+  renderAll();
+}
+
+function parityForward(rows){
+  const diffs = [];
+  rows.forEach(r=>{
+    if(r.callSettle!=null && r.putSettle!=null){
+      diffs.push(r.strike + r.callSettle - r.putSettle);
+    }
+  });
+  if(!diffs.length) return null;
+  diffs.sort((a,b)=>a-b);
+  const mid = Math.floor(diffs.length/2);
+  return diffs.length%2 ? diffs[mid] : (diffs[mid-1]+diffs[mid])/2;
+}
+
+/* =========================================================
+   LIVE INDEX SPOT (§6 GET /spot, §8 "optional live forward",
+   §11 IndexSymbol: "^GDAXI") — this is the piece that was missing.
+   Without it, the displayed price was purely derived from the EOD
+   option settlements (dSettle), which only change once a session —
+   so it never tracked the live market and looked "stuck".
+   forward = base settlement (future/parity/OI) + spot.Delta
+   spot.Delta = live index price − live index previous close.
+   Labelled as the delayed index, not the future (per spec §8).
+
+   Primary source: Twelve Data (free tier, 800 calls/day, built for
+   exactly this kind of client-side use — proper CORS support, no
+   crumb/cookie dance required). Using your own personal key here,
+   since you registered it specifically for this and confirmed
+   you're not sharing this file — same basis as the Eurex key above.
+   If you ever do share the file, get your own free key at
+   twelvedata.com and swap it in.
+   Yahoo is kept as a secondary attempt in case Twelve Data's symbol
+   guess or quota ever fails — currently blocked by Yahoo's own
+   anti-bot crumb requirement, may or may not start working again.
+========================================================= */
+const TWELVE_DATA_API_KEY = '7672c2177100407c82a8810766907b62';
+const TWELVE_DATA_SYMBOL = 'DAX'; // best-guess symbol; if wrong, Twelve Data's own error message will say so
+const YAHOO_SYMBOL = '%5EGDAXI'; // ^GDAXI, URL-encoded
+const YAHOO_DIRECT_URL = `https://query1.finance.yahoo.com/v8/finance/chart/${YAHOO_SYMBOL}?range=1d&interval=1m`;
+let spotQuote = null; // {price, prevClose, delta, asOf, source: 'twelvedata'|'direct'|'proxy'}
+let spotQuoteError = null;
+
+function yahooProxyUrl(){
+  const proxy = getProxyBase(); // e.g. https://your-worker.workers.dev/proxy
+  if(!proxy) return null;
+  const yproxyBase = proxy.replace(/\/proxy\/?$/, '/yproxy');
+  return `${yproxyBase}/v8/finance/chart/${YAHOO_SYMBOL}?range=1d&interval=1m`;
+}
+
+async function tryFetchTwelveData(){
+  const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(TWELVE_DATA_SYMBOL)}&apikey=${TWELVE_DATA_API_KEY}`;
+  const res = await fetch(url, { cache:'no-store' });
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const json = await res.json();
+  if(json.status === 'error') throw new Error('Twelve Data: '+(json.message||'unknown error'));
+  const price = parseFloat(json.close);
+  const prevClose = parseFloat(json.previous_close);
+  if(isNaN(price)) throw new Error('unexpected Twelve Data response shape');
+  return { price, prevClose: isNaN(prevClose)?null:prevClose, delta: !isNaN(prevClose) ? price-prevClose : 0, asOf: Date.now(), source:'twelvedata' };
+}
+
+async function tryFetchSpot(url, label){
+  const res = await fetch(url, { cache:'no-store' });
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const json = await res.json();
+  const meta = json && json.chart && json.chart.result && json.chart.result[0] && json.chart.result[0].meta;
+  if(!meta || typeof meta.regularMarketPrice!=='number') throw new Error('unexpected Yahoo response shape');
+  const price = meta.regularMarketPrice;
+  const prevClose = (typeof meta.previousClose==='number') ? meta.previousClose
+    : (typeof meta.chartPreviousClose==='number' ? meta.chartPreviousClose : null);
+  return { price, prevClose, delta: prevClose!=null ? price-prevClose : 0, asOf: Date.now(), source: label };
+}
+
+async function refreshSpotQuote(){
+  try{
+    spotQuote = await tryFetchTwelveData();
+    spotQuoteError = null;
+    renderAll();
+    return;
+  }catch(err){ spotQuoteError = err.message; }
+
+  const attempts = [ [YAHOO_DIRECT_URL, 'direct'] ];
+  const proxied = yahooProxyUrl();
+  if(proxied) attempts.push([proxied, 'proxy']);
+  for(const [url, label] of attempts){
+    try{
+      spotQuote = await tryFetchSpot(url, label);
+      spotQuoteError = null;
+      renderAll();
+      return;
+    }catch(err){ spotQuoteError = err.message; }
+  }
+  spotQuote = null; // all attempts failed — underlying falls back to settlement-only, no live layer
+  renderAll();
+}
+
+/* =========================================================
+   PAGE 2 — DAX 40 COMPONENTS BY WEIGHT
+   Weight: published DAX 40 index weighting, dated snapshot (no free
+   source recomputes official free-float weights live). Today's %
+   change: genuine live quote per stock via Twelve Data, one batched
+   request for all 40 tickers, refreshed hourly + manual button.
+========================================================= */
+// Real DAX 40 constituents & market caps, captured live from MarketScreener's
+// DAX components page on 21 Aug 2026 (39 of 40 constituents were listed on that
+// page — Porsche AG/Porsche SE weren't visible in the fetched table, so they're
+// not included here). Weight = this company's market cap ÷ sum of all listed
+// companies' market caps — a market-cap-weighted approximation, NOT the official
+// STOXX/Deutsche Börse free-float-adjusted weighting (that methodology needs
+// free-float factors and a 15%-cap rule that aren't published in a free,
+// fetchable feed) — close in practice, but labelled honestly as an approximation
+// in the note below rather than claimed as the official figure.
+const DAX_CONSTITUENTS = [
+  { name:'SAP', ticker:'SAP.DE', apiSymbol:'SAP:XETR', marketCapUsdB:253.0, weight:10.12 },
+  { name:'Siemens', ticker:'SIE.DE', apiSymbol:'SIE:XETR', marketCapUsdB:251.0, weight:10.04 },
+  { name:'Allianz', ticker:'ALV.DE', apiSymbol:'ALV:XETR', marketCapUsdB:193.0, weight:7.72 },
+  { name:'Airbus', ticker:'AIR.PA', apiSymbol:'AIR:XPAR', marketCapUsdB:188.0, weight:7.52 },
+  { name:'Deutsche Telekom', ticker:'DTE.DE', apiSymbol:'DTE:XETR', marketCapUsdB:162.0, weight:6.48 },
+  { name:'Siemens Energy', ticker:'ENR.DE', apiSymbol:'ENR:XETR', marketCapUsdB:153.0, weight:6.12 },
+  { name:'Infineon Technologies', ticker:'IFX.DE', apiSymbol:'IFX:XETR', marketCapUsdB:84.91, weight:3.4 },
+  { name:'Munich Re', ticker:'MUV2.DE', apiSymbol:'MUV2:XETR', marketCapUsdB:75.79, weight:3.03 },
+  { name:'DHL Group', ticker:'DHL.DE', apiSymbol:'DHL:XETR', marketCapUsdB:72.37, weight:2.89 },
+  { name:'Deutsche Bank', ticker:'DBK.DE', apiSymbol:'DBK:XETR', marketCapUsdB:70.7, weight:2.83 },
+  { name:'Merck KGaA', ticker:'MRK.DE', apiSymbol:'MRK:XETR', marketCapUsdB:70.02, weight:2.8 },
+  { name:'Rheinmetall', ticker:'RHM.DE', apiSymbol:'RHM:XETR', marketCapUsdB:62.95, weight:2.52 },
+  { name:'Deutsche Börse', ticker:'DB1.DE', apiSymbol:'DB1:XETR', marketCapUsdB:59.54, weight:2.38 },
+  { name:'Bayer', ticker:'BAYN.DE', apiSymbol:'BAYN:XETR', marketCapUsdB:55.1, weight:2.2 },
+  { name:'E.ON', ticker:'EOAN.DE', apiSymbol:'EOAN:XETR', marketCapUsdB:53.13, weight:2.12 },
+  { name:'Siemens Healthineers', ticker:'SHL.DE', apiSymbol:'SHL:XETR', marketCapUsdB:52.24, weight:2.09 },
+  { name:'BASF', ticker:'BAS.DE', apiSymbol:'BAS:XETR', marketCapUsdB:51.93, weight:2.08 },
+  { name:'Commerzbank', ticker:'CBK.DE', apiSymbol:'CBK:XETR', marketCapUsdB:49.22, weight:1.97 },
+  { name:'Mercedes-Benz Group', ticker:'MBG.DE', apiSymbol:'MBG:XETR', marketCapUsdB:48.82, weight:1.95 },
+  { name:'RWE', ticker:'RWE.DE', apiSymbol:'RWE:XETR', marketCapUsdB:47.55, weight:1.9 },
+  { name:'Volkswagen', ticker:'VOW3.DE', apiSymbol:'VOW3:XETR', marketCapUsdB:44.34, weight:1.77 },
+  { name:'BMW', ticker:'BMW.DE', apiSymbol:'BMW:XETR', marketCapUsdB:41.16, weight:1.65 },
+  { name:'Daimler Truck Holding', ticker:'DTG.DE', apiSymbol:'DTG:XETR', marketCapUsdB:40.3, weight:1.61 },
+  { name:'Hochtief', ticker:'HOT.DE', apiSymbol:'HOT:XETR', marketCapUsdB:37.56, weight:1.5 },
+  { name:'Hannover Re', ticker:'HNR1.DE', apiSymbol:'HNR1:XETR', marketCapUsdB:35.31, weight:1.41 },
+  { name:'Henkel', ticker:'HEN3.DE', apiSymbol:'HEN3:XETR', marketCapUsdB:34.2, weight:1.37 },
+  { name:'Heidelberg Materials', ticker:'HEI.DE', apiSymbol:'HEI:XETR', marketCapUsdB:32.68, weight:1.31 },
+  { name:'Adidas', ticker:'ADS.DE', apiSymbol:'ADS:XETR', marketCapUsdB:31.37, weight:1.25 },
+  { name:'MTU Aero Engines', ticker:'MTX.DE', apiSymbol:'MTX:XETR', marketCapUsdB:22.16, weight:0.89 },
+  { name:'Beiersdorf', ticker:'BEI.DE', apiSymbol:'BEI:XETR', marketCapUsdB:20.26, weight:0.81 },
+  { name:'Vonovia', ticker:'VNA.DE', apiSymbol:'VNA:XETR', marketCapUsdB:19.87, weight:0.79 },
+  { name:'Continental', ticker:'CON.DE', apiSymbol:'CON:XETR', marketCapUsdB:16.06, weight:0.64 },
+  { name:'Symrise', ticker:'SY1.DE', apiSymbol:'SY1:XETR', marketCapUsdB:14.37, weight:0.57 },
+  { name:'GEA Group', ticker:'G1A.DE', apiSymbol:'G1A:XETR', marketCapUsdB:12.51, weight:0.5 },
+  { name:'Fresenius', ticker:'FRE.DE', apiSymbol:'FRE:XETR', marketCapUsdB:21.1, weight:0.85 },
+  { name:'Fresenius Medical Care', ticker:'FME.DE', apiSymbol:'FME:XETR', marketCapUsdB:12.42, weight:0.5 },
+  { name:'Brenntag', ticker:'BNR.DE', apiSymbol:'BNR:XETR', marketCapUsdB:10.19, weight:0.41 },
+  { name:'Qiagen', ticker:'QIA.DE', apiSymbol:'QIA:XETR', marketCapUsdB:9.11, weight:0.36 },
+  { name:'Zalando', ticker:'ZAL.DE', apiSymbol:'ZAL:XETR', marketCapUsdB:6.41, weight:0.26 },
+  { name:'Scout24', ticker:'G24.DE', apiSymbol:'G24:XETR', marketCapUsdB:6.26, weight:0.25 },
+].sort((a,b)=>b.weight-a.weight);
+
+let compQuotes = {}; // ticker -> {price, prevClose, changePct} | {error}
+let compLastRefresh = null;
+let compRefreshError = null;
+
+function setCompStatus(kind, text){
+  const box = document.getElementById('compStatusBox');
+  if(!box) return;
+  const cls = kind==='ok'?'ok':kind==='err'?'err':'pending';
+  box.innerHTML = `<span class="sdot ${cls}"></span><span>${text}</span>`;
+}
+
+// Free tier caps at 8 credits/minute; spaced 8s apart (7.5/min) for margin.
+const COMP_REQUEST_DELAY_MS = 8000;
+let compRefreshToken = 0; // bumped on each refreshComponents() call to cancel any in-flight run
+
+// A "TICKER:XETR fails → retry with bare TICKER" fallback used to live here.
+// Removed: when :XETR was rejected (confirmed via real response — Twelve
+// Data's free key returns "This symbol is available starting with the Grow
+// or Venture plan" for XETRA equities, a plan restriction, not a wrong
+// format), the bare-ticker retry didn't fail — it silently resolved to a
+// DIFFERENT security on a DIFFERENT exchange (confirmed live: plain "SAP"
+// returned SAP's NYSE-listed USD ADR, priced and moving independently of
+// the XETRA ordinary shares this table is about). A wrong-but-plausible
+// number is worse than an honest "—", so there's no fallback now — just a
+// direct request plus a hard check that the exchange in the response
+// actually matches what was asked for, in case this ever recurs.
+async function fetchSingleQuote(c){
+  const expectedMic = c.apiSymbol.split(':')[1] || null;
+  const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(c.apiSymbol)}&apikey=${TWELVE_DATA_API_KEY}`;
+  const res = await fetch(url, { cache:'no-store' });
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const json = await res.json();
+  if(json.status === 'error') throw new Error(json.message || 'Twelve Data error');
+  if(expectedMic && json.mic_code && json.mic_code !== expectedMic){
+    throw new Error(`resolved to wrong exchange (${json.exchange||json.mic_code}, expected ${expectedMic}) — refusing to use it`);
+  }
+  const price = parseFloat(json.close);
+  const changePct = parseFloat(json.percent_change);
+  if(isNaN(price)) throw new Error('unexpected response shape');
+  return { price, changePct: isNaN(changePct)?null:changePct };
+}
+
+async function refreshComponents(){
+  const myToken = ++compRefreshToken; // if another refresh starts, this one bails out early
+  let okCount = 0;
+  compRefreshError = null;
+  setCompStatus('pending', `Fetching live quotes for ${DAX_CONSTITUENTS.length} companies from Twelve Data, one at a time (free-tier rate limit — full pass takes a few minutes, longer on the first run while it works out which symbol format resolves for each name)…`);
+  for(let i=0; i<DAX_CONSTITUENTS.length; i++){
+    if(myToken !== compRefreshToken) return; // a newer refresh (manual click) superseded this run
+    const c = DAX_CONSTITUENTS[i];
+    try{
+      compQuotes[c.apiSymbol] = await fetchSingleQuote(c);
+      okCount++;
+    }catch(err){
+      compRefreshError = err.message;
+      compQuotes[c.apiSymbol] = { error: err.message };
+    }
+    compLastRefresh = Date.now();
+    renderComponents();
+    if(i < DAX_CONSTITUENTS.length-1){
+      setCompStatus('pending', `Fetching live quotes… ${i+1}/${DAX_CONSTITUENTS.length} done (${okCount} ok) — next in ~${Math.round(COMP_REQUEST_DELAY_MS/1000)}s`);
+      await new Promise(r=>setTimeout(r, COMP_REQUEST_DELAY_MS));
+    }
+  }
+  if(myToken !== compRefreshToken) return;
+  setCompStatus(okCount>0 ? 'ok' : 'err',
+    okCount===DAX_CONSTITUENTS.length
+      ? `<b>Live quotes loaded</b> for all ${okCount} companies · updated just now`
+      : `Live quotes loaded for ${okCount} of ${DAX_CONSTITUENTS.length} companies — hover a row showing "—" to see its specific error${compRefreshError ? ' (last error: '+compRefreshError+')' : ''}`);
+}
+
+function renderComponents(){
+  const tbody = document.getElementById('compTableBody');
+  if(!tbody) return;
+  tbody.innerHTML = DAX_CONSTITUENTS.map((c,i)=>{
+    const q = compQuotes[c.apiSymbol];
+    let chgHtml = '<span class="chg flat">—</span>';
+    let rowTitle = 'no quote yet';
+    if(q && q.error){
+      rowTitle = 'Twelve Data error: ' + q.error;
+    } else if(q && q.changePct!=null){
+      const cls = q.changePct>0 ? 'up' : q.changePct<0 ? 'down' : 'flat';
+      const sign = q.changePct>0 ? '+' : '';
+      chgHtml = `<span class="chg ${cls}">${sign}${q.changePct.toFixed(2)}%</span>`;
+      rowTitle = `close ${q.price}`;
+    }
+    return `<tr title="${rowTitle}">
+      <td class="rank">${i+1}</td>
+      <td><span class="cname">${c.name}</span><span class="cticker">${c.ticker}</span></td>
+      <td class="num weight">${c.weight.toFixed(2)}%</td>
+      <td class="num">${chgHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* =========================================================
+   PAGE SWITCHING
+========================================================= */
+let componentsLoadedOnce = false;
+function showPage(page){
+  document.getElementById('pageOptions').style.display = page==='options' ? '' : 'none';
+  document.getElementById('pageComponents').style.display = page==='components' ? '' : 'none';
+  document.getElementById('navOptionsBtn').classList.toggle('active', page==='options');
+  document.getElementById('navComponentsBtn').classList.toggle('active', page==='components');
+  if(page==='components' && !componentsLoadedOnce){
+    componentsLoadedOnce = true;
+    renderComponents();
+    refreshComponents();
+    setInterval(refreshComponents, PRICE_POLL_MS);
+  }
+}
+document.getElementById('navOptionsBtn').addEventListener('click', ()=>showPage('options'));
+document.getElementById('navComponentsBtn').addEventListener('click', ()=>showPage('components'));
+document.getElementById('btnRefreshComponents').addEventListener('click', refreshComponents);
+
+function resolveBaseUnderlying(exp, rows){
+  if(!rows || !rows.length) return null;
+  const futureSettle = futuresMap.get(ymd(exp.date));
+  if(futureSettle!=null) return { price: futureSettle, source:'future' };
+  const parity = parityForward(rows);
+  if(parity!=null) return { price: parity, source:'parity' };
+  const byOI = [...rows].sort((a,b)=>(b.callOI+b.putOI)-(a.callOI+a.putOI))[0];
+  if(byOI) return { price: byOI.strike, source:'oi' };
+  return null;
+}
+function resolveUnderlying(exp, rows){
+  const base = resolveBaseUnderlying(exp, rows);
+  if(!base) return null;
+  if(spotQuote){
+    return { price: base.price + spotQuote.delta, source: base.source, live:true };
+  }
+  return { ...base, live:false };
+}
+
+/* =========================================================
+   OPTION MATH — Black-76 IV solver + Black-Scholes gamma + GEX (spec §5).
+   IV is solved from the EOD settlement prices, so it uses the EOD-only
+   forward (resolveBaseUnderlying) rather than the live-adjusted price —
+   mixing a live spot with EOD option premiums would solve a slightly
+   wrong, internally-inconsistent IV. GEX is explicitly a modeled EOD
+   estimate (assumes dealers long calls / short puts, which isn't directly
+   observable) — labelled as such in the UI, not presented as a fact.
+========================================================= */
+function stdNormCdf(x){
+  const b1=0.319381530,b2=-0.356563782,b3=1.781477937,b4=-1.821255978,b5=1.330274429;
+  const p=0.2316419, c=0.39894228;
+  if(x>=0){
+    const t=1/(1+p*x);
+    return 1-c*Math.exp(-x*x/2)*t*(t*(t*(t*(t*b5+b4)+b3)+b2)+b1);
+  } else {
+    const t=1/(1-p*x);
+    return c*Math.exp(-x*x/2)*t*(t*(t*(t*(t*b5+b4)+b3)+b2)+b1);
+  }
+}
+function stdNormPdf(x){ return Math.exp(-x*x/2)/Math.sqrt(2*Math.PI); }
+
+function black76PriceVega(isCall, f, k, t, sigma){
+  const sqrtT = Math.sqrt(t);
+  const d1 = (Math.log(f/k) + 0.5*sigma*sigma*t)/(sigma*sqrtT);
+  const d2 = d1 - sigma*sqrtT;
+  const price = isCall ? f*stdNormCdf(d1) - k*stdNormCdf(d2) : k*stdNormCdf(-d2) - f*stdNormCdf(-d1);
+  const vega = f*sqrtT*stdNormPdf(d1);
+  return { price, vega };
+}
+
+// Newton-Raphson on vega, seeded at σ=0.20, bisection fallback over [0.01,5.0].
+// Returns null when price ≤ intrinsic, t≤0, or no convergence (leave wings null by design).
+function solveIV(isCall, price, f, k, t){
+  const intrinsic = isCall ? Math.max(0, f-k) : Math.max(0, k-f);
+  if(!(price > intrinsic + 1e-8)) return null;
+  if(!(t > 0)) return null;
+  const MIN=0.01, MAX=5.0;
+  let sigma = 0.20;
+  for(let i=0;i<100;i++){
+    const {price:model, vega} = black76PriceVega(isCall,f,k,t,sigma);
+    const diff = model - price;
+    if(Math.abs(diff) < 1e-7) return sigma;
+    if(vega < 1e-8) break;
+    sigma -= diff/vega;
+    if(sigma <= MIN || sigma >= MAX || !isFinite(sigma)) break;
+  }
+  let lo=MIN, hi=MAX;
+  const f_lo = black76PriceVega(isCall,f,k,t,lo).price - price;
+  const f_hi = black76PriceVega(isCall,f,k,t,hi).price - price;
+  if((f_lo>0 && f_hi>0) || (f_lo<0 && f_hi<0)) return null;
+  for(let i=0;i<100;i++){
+    const mid=(lo+hi)/2;
+    const f_mid = black76PriceVega(isCall,f,k,t,mid).price - price;
+    if(Math.abs(f_mid) < 1e-7) return mid;
+    if((f_lo<0)===(f_mid<0)) lo=mid; else hi=mid;
+  }
+  return (lo+hi)/2;
+}
+
+// OTM side carries the time value and inverts cleanly (call when K≥F, put when K<F);
+// falls back to the other side if the OTM one has no usable price.
+function solveStrikeIV(strike, forward, t, callSettle, putSettle){
+  const otmIsCall = strike >= forward;
+  const primaryPrice = otmIsCall ? callSettle : putSettle;
+  const secondaryPrice = otmIsCall ? putSettle : callSettle;
+  let iv = (primaryPrice!=null) ? solveIV(otmIsCall, primaryPrice, forward, strike, t) : null;
+  if(iv==null && secondaryPrice!=null) iv = solveIV(!otmIsCall, secondaryPrice, forward, strike, t);
+  return iv;
+}
+
+function bsGamma(spot, k, t, sigma){
+  if(!(sigma>0) || !(t>0)) return 0;
+  const d1 = (Math.log(spot/k)+0.5*sigma*sigma*t)/(sigma*Math.sqrt(t));
+  return stdNormPdf(d1)/(spot*sigma*Math.sqrt(t));
+}
+
+const CONTRACT_MULTIPLIER = 5; // ODAX: €5 per index point
+
+// Per-strike net GEX = gamma · (CallOI − PutOI) · spot² · multiplier · 0.01,
+// assuming dealers long calls / short puts (a modeling convention, not an
+// observed fact — real dealer positioning isn't public). That NET value
+// drives the bars, the cumulative line and the gamma flip (the flip is
+// genuinely a net-cumulative concept — where the running dealer position
+// crosses zero). Call Wall / Put Wall are a different concept, though:
+// they mark where gamma concentration from ONE side alone is heaviest, so
+// they're picked from the per-side gamma exposure (callGex / putGex), not
+// net. A strike with huge OI on both sides nets out small but is still a
+// real wall — using net here was the bug: it could silently skip exactly
+// the heaviest-OI strikes whenever call and put interest roughly offset,
+// which is common right at the money.
+function computeGexProfile(rows, forward, t){
+  if(!rows || !rows.length || !forward || !(t>0)) return null;
+  const perStrike = rows.map(r=>{
+    const iv = solveStrikeIV(r.strike, forward, t, r.callSettle, r.putSettle);
+    if(iv==null) return { strike:r.strike, gex:null, callGex:null, putGex:null, iv:null };
+    const gamma = bsGamma(forward, r.strike, t, iv);
+    const scale = gamma * forward*forward * CONTRACT_MULTIPLIER * 0.01;
+    const callGex = scale * r.callOI;   // call-side gamma notional alone (always ≥0)
+    const putGex = scale * r.putOI;     // put-side gamma notional alone (always ≥0)
+    const gex = callGex - putGex;       // net, for the bars/cumulative/flip
+    return { strike:r.strike, gex, callGex, putGex, iv };
+  });
+  const withGex = perStrike.filter(p=>p.gex!=null).sort((a,b)=>a.strike-b.strike);
+  if(!withGex.length) return { perStrike, netGexTotal:null, callWall:null, putWall:null, absGammaStrike:null, gammaFlip:null };
+  const netGexTotal = withGex.reduce((a,p)=>a+p.gex,0);
+  let callWall=withGex[0], putWall=withGex[0], absMax=withGex[0];
+  withGex.forEach(p=>{
+    if(p.callGex>callWall.callGex) callWall=p;   // heaviest call-side gamma concentration
+    if(p.putGex>putWall.putGex) putWall=p;       // heaviest put-side gamma concentration
+    if(Math.abs(p.gex)>Math.abs(absMax.gex)) absMax=p;
+  });
+  let flip=null, cum=0;
+  const cumSeries = [];
+  for(let i=0;i<withGex.length;i++){
+    const prevCum = cum;
+    cum += withGex[i].gex;
+    cumSeries.push({ strike: withGex[i].strike, cum });
+    if(flip==null && i>0 && ((prevCum<0 && cum>=0) || (prevCum>0 && cum<=0))){
+      const s0=withGex[i-1].strike, s1=withGex[i].strike;
+      flip = s0 + (s1-s0)*(0-prevCum)/(cum-prevCum);
+    }
+  }
+  return { perStrike, netGexTotal, callWall:callWall.strike, putWall:putWall.strike, absGammaStrike:absMax.strike, gammaFlip:flip, cumSeries };
+}
+
+// Trade-date used for T (spec: "measured from the trade date, not 'now'").
+// dateLabel is "DD.MM.YYYY" from the Eurex response header for this expiry's data.
+function parseTradeDate(dateLabel){
+  if(!dateLabel) return null;
+  const parts = dateLabel.split('.');
+  if(parts.length!==3) return null;
+  const d = new Date(+parts[2], +parts[1]-1, +parts[0]);
+  return isNaN(d) ? null : d;
+}
+function yearsToExpiry(exp, tradeDate){
+  if(!tradeDate) return null; // honest failure, not a silent "today" guess (spec: measure from the data's trade date)
+  const ms = exp.date.getTime() - tradeDate.getTime();
+  return Math.max(ms/(365*24*3600*1000), 0);
+}
+
+/* =========================================================
+   LIGHTWEIGHT LOCAL PERSISTENCE (best-effort, this is a plain
+   HTML file opened in a normal browser — no special storage API)
+========================================================= */
+function lsGet(key){ try{ const v = localStorage.getItem('odax:'+key); return v?JSON.parse(v):null; }catch(e){ return null; } }
+function lsSet(key, val){ try{ localStorage.setItem('odax:'+key, JSON.stringify(val)); }catch(e){} }
+ALL_EXPIRIES.forEach(exp=>{
+  const cached = lsGet('data:'+exp.key);
+  const cachedMeta = lsGet('meta:'+exp.key);
+  if(cached && cached.length){ dataStore[exp.key] = cached; metaStore[exp.key] = cachedMeta || {source:'manual'}; }
+});
+
+/* =========================================================
+   EUREX FETCH
+========================================================= */
+function prevBusinessDay(d){
+  const nd = new Date(d);
+  do{ nd.setDate(nd.getDate()-1); } while(nd.getDay()===0 || nd.getDay()===6);
+  return nd;
+}
+// Unlike prevBusinessDay (always steps back at least one day), this returns
+// "today" itself if today is Mon–Fri, or the most recent Friday if today is
+// a weekend. Used for the overview call's busdate — sending a real calendar
+// weekend date there got an empty response from Eurex (busdate has to be an
+// actual trading day), while detail calls happened to work anyway since they
+// already used prevBusinessDay as their fallback.
+function mostRecentBusinessDay(d){
+  const nd = new Date(d);
+  while(nd.getDay()===0 || nd.getDay()===6){ nd.setDate(nd.getDate()-1); }
+  return nd;
+}
+function parseEurexJson(json){
+  if(!json || !Array.isArray(json.dataRowsCall) || !Array.isArray(json.dataRowsPut)){
+    throw new Error('no dataRowsCall/dataRowsPut in response');
+  }
+  const map = new Map();
+  json.dataRowsCall.forEach(r=>{
+    const k=r.strike;
+    if(!map.has(k)) map.set(k,{strike:k,callOI:0,putOI:0,callVol:0,putVol:0,callSettle:null,putSettle:null});
+    const o=map.get(k); o.callOI=r.openInterest||0; o.callVol=r.volume||0;
+    o.callSettle = (typeof r.dSettle==='number' && r.dSettle>0) ? r.dSettle : null;
+  });
+  json.dataRowsPut.forEach(r=>{
+    const k=r.strike;
+    if(!map.has(k)) map.set(k,{strike:k,callOI:0,putOI:0,callVol:0,putVol:0,callSettle:null,putSettle:null});
+    const o=map.get(k); o.putOI=r.openInterest||0; o.putVol=r.volume||0;
+    o.putSettle = (typeof r.dSettle==='number' && r.dSettle>0) ? r.dSettle : null;
+  });
+  const rows = Array.from(map.values())
+    .filter(r => r.callOI!==0 || r.putOI!==0) // drop untraded tails (both sides zero OI)
+    .sort((a,b)=>a.strike-b.strike);
+  const dateRaw = (json.header && json.header.date) || '';
+  const dateLabel = dateRaw.length===8 ? `${dateRaw.slice(6,8)}.${dateRaw.slice(4,6)}.${dateRaw.slice(0,4)}` : dateRaw;
+  return { rows, dateLabel };
+}
+let lastKnownBusdate = null; // set once fetchOverview() succeeds; used as busdate for every detail call and as T's trade-date basis for GEX
+async function fetchEurexExpiry(exp){
+  const busdate = lastKnownBusdate || ymd(prevBusinessDay(new Date()));
+  const url = eurexUrl(`/api/v1/overallstatistics/${EUREX_PRODUCT_ID}`+
+    `?filtertype=detail&productdate=${ymd(exp.date)}&busdate=${busdate}&contracttype=${exp.type}`);
+  const res = await fetch(url, { cache:'no-store' });
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const json = await res.json();
+  return parseEurexJson(json);
+}
+async function refreshExpiry(key, {silent}={}){
+  const exp = ALL_EXPIRIES.find(e=>e.key===key);
+  if(!exp) return;
+  if(!silent && key===activeKey) setStatus('pending', `Requesting eurex.com for ${exp.label}…`);
+  try{
+    const { rows, dateLabel } = await fetchEurexExpiry(exp);
+    if(rows.length){
+      dataStore[key] = rows;
+      metaStore[key] = { source:'eurex-live', dateLabel, checkedAt: Date.now(), error:null };
+      lsSet('data:'+key, rows); lsSet('meta:'+key, metaStore[key]);
+    } else {
+      metaStore[key] = { ...(metaStore[key]||{}), checkedAt: Date.now(), error:'empty response' };
+    }
+    document.getElementById('corsNote').style.display = 'none';
+  }catch(err){
+    metaStore[key] = { ...(metaStore[key]||{}), checkedAt: Date.now(), error: err.message };
+    if(err.message === 'Failed to fetch'){ document.getElementById('corsNote').style.display = 'block'; }
+  }
+  if(key===activeKey){ renderTabs(); renderStatus(); renderAll(); }
+}
+let lastOverviewError = null; // kept even on silent auto-refreshes so GEX can explain a stale busdate instead of just saying "try again"
+
+async function refreshAll(opts){
+  try{
+    lastKnownBusdate = await fetchOverview();
+    lastOverviewError = null;
+    ALL_EXPIRIES.forEach(exp=>{
+      const cached = lsGet('data:'+exp.key), cachedMeta = lsGet('meta:'+exp.key);
+      if(cached && cached.length && !dataStore[exp.key]){ dataStore[exp.key] = cached; metaStore[exp.key] = cachedMeta || {source:'manual'}; }
+    });
+    document.getElementById('corsNote').style.display = 'none';
+  }catch(err){
+    lastOverviewError = err.message;
+    if(err.message === 'Failed to fetch') document.getElementById('corsNote').style.display = 'block';
+    if(!opts || !opts.silent) setStatus('err', `Failed to get the current trading date from eurex.com (${err.message}) — detail calls will fall back to a guessed busdate`);
+  }
+  renderTabs(); renderStatus();
+  for(const exp of ALL_EXPIRIES){ await refreshExpiry(exp.key, opts); }
+  // The heatmap's newest column reuses dataStore[activeKey] rather than refetching it, so a
+  // fresh live poll should refresh that column too, same as the main OI/GEX charts do.
+  if(chartMetric==='heatmap'){
+    const exp = ALL_EXPIRIES.find(e=>e.key===activeKey);
+    if(exp && historyStore[exp.key] && historyStore[exp.key].length){
+      historyStore[exp.key][0] = { date: historyStore[exp.key][0].date, rows: dataStore[exp.key] || [] };
+    }
+    renderHeatmap();
+  }
+}
+
+/* =========================================================
+   SESSION-HISTORY FETCH — for the Heatmap, which is "this one expiry's
+   strike ladder across its last N trading sessions" (columns = dates,
+   not other expiries). Same detail endpoint as the live chain, just
+   walking busdate backward one business day at a time. The newest
+   column reuses dataStore[exp.key] (already fetched by refreshAll) —
+   only the N older sessions need a dedicated fetch. Lazy (only runs
+   once Heatmap is opened for a given expiry) and cached per expiry
+   for the rest of the session, since a settled past session never
+   changes intraday.
+========================================================= */
+const HEATMAP_SESSION_COUNT = 12; // visible date columns
+let historyStore = {}; // exp.key -> [{date, rows}, ...] newest→oldest, length up to HEATMAP_SESSION_COUNT+1 (+1 extra oldest session, used only to compute the leftmost visible column's OI Change)
+let historyFetchPromises = {}; // exp.key -> in-flight Promise, so switching tabs back and forth doesn't refetch
+async function fetchEurexDetailForDate(exp, busdateStr){
+  const url = eurexUrl(`/api/v1/overallstatistics/${EUREX_PRODUCT_ID}`+
+    `?filtertype=detail&productdate=${ymd(exp.date)}&busdate=${busdateStr}&contracttype=${exp.type}`);
+  const res = await fetch(url, { cache:'no-store' });
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const json = await res.json();
+  return parseEurexJson(json);
+}
+async function ensureHistoryData(exp){
+  const existing = historyStore[exp.key];
+  if(existing && existing.length >= HEATMAP_SESSION_COUNT+1) return existing;
+  if(historyFetchPromises[exp.key]) return historyFetchPromises[exp.key];
+  historyFetchPromises[exp.key] = (async()=>{
+    const todayDate = lastKnownBusdate ? ymdStrToDate(lastKnownBusdate) : mostRecentBusinessDay(new Date());
+    const sessions = [{ date: todayDate, rows: dataStore[exp.key] || [] }];
+    let d = todayDate;
+    for(let i=0;i<HEATMAP_SESSION_COUNT;i++){
+      d = prevBusinessDay(d);
+      try{
+        const { rows } = await fetchEurexDetailForDate(exp, ymd(d));
+        sessions.push({ date: new Date(d), rows });
+      }catch(e){
+        sessions.push({ date: new Date(d), rows: [] }); // that session just shows as an empty column rather than guessing
+      }
+      if(chartMetric==='heatmap' && activeKey===exp.key) renderHeatmap(); // paint columns in as they arrive instead of one long blank wait
+    }
+    historyStore[exp.key] = sessions;
+    delete historyFetchPromises[exp.key];
+    return sessions;
+  })();
+  return historyFetchPromises[exp.key];
+}
+
+/* =========================================================
+   STATUS BOX
+========================================================= */
+function setStatus(kind, text){
+  const box = document.getElementById('statusBox');
+  const cls = kind==='ok'?'ok':kind==='err'?'err':'pending';
+  box.innerHTML = `<span class="sdot ${cls}"></span><span>${text}</span>`;
+}
+function renderStatus(){
+  const meta = metaStore[activeKey];
+  const exp = ALL_EXPIRIES.find(e=>e.key===activeKey);
+  if(!meta){ setStatus('pending', `No data for ${exp.label} yet — waiting on request to eurex.com…`); return; }
+  if(meta.source==='eurex-live'){
+    const mins = meta.checkedAt ? Math.round((Date.now()-meta.checkedAt)/60000) : null;
+    const rel = mins===null ? '' : mins<1 ? 'just now' : `${mins} min ago`;
+    setStatus('ok', `<b>Live data from eurex.com</b> · date in response: ${meta.dateLabel||'—'} · updated ${rel}`);
+  } else if(meta.source==='manual'){
+    setStatus('ok', `Data loaded manually (import)`);
+  } else if(meta.error){
+    setStatus('err', `Failed to get data from eurex.com for ${exp.label} (${meta.error}${meta.error==='Failed to fetch'?' — looks like CORS':''}) — use the import panel below`);
+  } else {
+    setStatus('pending', `No data for ${exp.label} — use the import panel below or wait for auto-refresh`);
+  }
+}
+
+/* =========================================================
+   TABS
+========================================================= */
+function renderTabs(){
+  const rowW = document.getElementById('tabsRowWeekly');
+  const rowM = document.getElementById('tabsRowMonthly');
+  rowW.innerHTML=''; rowM.innerHTML='';
+  function makeTab(exp){
+    const el = document.createElement('div');
+    const hasReal = dataStore[exp.key] && dataStore[exp.key].length;
+    el.className = 'tab' + (exp.key===activeKey ? ' active' : '');
+    const confirmed = confirmedKeys.has(exp.key) ? ' ✓' : '';
+    el.title = confirmedKeys.has(exp.key) ? 'Date confirmed by Eurex Reference Data API' : 'Date computed by standard convention, not confirmed via API';
+    el.innerHTML = `<span class="srcdot ${hasReal?'real':'demo'}"></span>${exp.label}${confirmed} <span class="sub">${exp.type}</span>`;
+    el.onclick = () => {
+      activeKey = exp.key;
+      viewMin = null; viewMax = null;
+      document.getElementById('importExpLabel').textContent = exp.label+' ('+exp.type+')';
+      document.getElementById('chartExpiry').textContent = exp.label;
+      renderTabs(); renderStatus(); renderAll();
+    };
+    return el;
+  }
+  WEEKLY_EXP.forEach(exp=>rowW.appendChild(makeTab(exp)));
+  MONTHLY_EXP.forEach(exp=>rowM.appendChild(makeTab(exp)));
+
+  document.getElementById('countWeekly').textContent = WEEKLY_EXP.length ? `(${WEEKLY_EXP.length})` : '';
+  document.getElementById('countMonthly').textContent = MONTHLY_EXP.length ? `(${MONTHLY_EXP.length})` : '';
+
+  // auto-open whichever group holds the active tab; leave the others as the user left them
+  const activeType = (ALL_EXPIRIES.find(e=>e.key===activeKey)||{}).type;
+  if(activeType==='W') document.getElementById('groupWeekly').open = true;
+  if(activeType==='M') document.getElementById('groupMonthly').open = true;
+}
+
+/* =========================================================
+   MAX PAIN + STATS
+========================================================= */
+function computeMaxPain(rows){
+  if(!rows || !rows.length) return null;
+  // At settlement S: calls with strike K<S are ITM (writer owes S-K);
+  // puts with strike K>S are ITM (writer owes K-S). Max pain = S minimizing total payout.
+  let best=null, bestPain=Infinity;
+  rows.forEach(r=>{
+    const settle=r.strike; let pain=0;
+    rows.forEach(o=>{
+      if(o.strike<settle) pain += o.callOI*(settle-o.strike);
+      if(o.strike>settle) pain += o.putOI*(o.strike-settle);
+    });
+    if(pain<bestPain){ bestPain=pain; best=settle; }
+  });
+  return best;
+}
+function computeStats(rows){
+  const putOI=rows.reduce((a,r)=>a+r.putOI,0), callOI=rows.reduce((a,r)=>a+r.callOI,0);
+  const putVol=rows.reduce((a,r)=>a+r.putVol,0), callVol=rows.reduce((a,r)=>a+r.callVol,0);
+  return { putOI, callOI, putVol, callVol, maxPain: computeMaxPain(rows),
+    oiRatio: callOI?(putOI/callOI).toFixed(2):'—', volRatio: callVol?(putVol/callVol).toFixed(2):'—' };
+}
+function renderStats(rows, und){
+  const s = computeStats(rows);
+  const srcLabel = { future:'FUTURE', parity:'PARITY', oi:'EST' };
+  const undTag = und ? (und.live ? 'LIVE' : srcLabel[und.source]) : '';
+  const undTitle = und ? (und.live ? `delayed index quote applied on top of ${srcLabel[und.source]} base` : `no live index quote available — EOD-only${spotQuoteError ? ' (last error: '+spotQuoteError+')' : ''}`) : '';
+  const undHtml = und
+    ? `<div class="stat" title="${undTitle}"><div class="k">Underlying</div><div class="v">${und.price.toLocaleString('en-US',{maximumFractionDigits:1})}<span class="src">${undTag}</span></div></div>`
+    : `<div class="stat"><div class="k">Underlying</div><div class="v" style="color:var(--text-faint)">—</div></div>`;
+  const items = [
+    ['Put OI', s.putOI.toLocaleString('en-US'), 'put'],
+    ['Call OI', s.callOI.toLocaleString('en-US'), 'call'],
+    ['OI P/C', s.oiRatio, ''],
+    ['Put Volume', s.putVol.toLocaleString('en-US'), 'put'],
+    ['Call Volume', s.callVol.toLocaleString('en-US'), 'call'],
+    ['Vol P/C', s.volRatio, ''],
+    ['Max Pain', s.maxPain!==null ? s.maxPain.toLocaleString('en-US') : '—', 'gold']
+  ];
+  document.getElementById('statsRow').innerHTML = undHtml + items.map(([k,v,cls])=>
+    `<div class="stat"><div class="k">${k}</div><div class="v ${cls}">${v}</div></div>`).join('');
+  updateHeaderPrice(und);
+}
+function updateHeaderPrice(und){
+  const el = document.getElementById('headerPrice');
+  if(!el) return;
+  if(!und){ el.textContent = 'DAX —'; return; }
+  const srcLabel = { future:'future', parity:'parity fwd', oi:'est.' };
+  const tag = und.live ? 'delayed index' : srcLabel[und.source] + ' · EOD only';
+  el.textContent = `DAX ${und.price.toLocaleString('en-US',{maximumFractionDigits:1})} · ${tag}`;
+}
+
+/* =========================================================
+   ZOOM / PAN STATE (shared domain across both charts)
+========================================================= */
+let viewMin = null, viewMax = null; // null = auto full range for current tab's data
+
+// GEX mode's "full range" is the active strike band (where |GEX| actually clears a
+// visible threshold), not the whole option chain — the chain runs far past where there's
+// any real gamma, and showing that dead space was the whole point of this toggle.
+// renderAll() refreshes this each time it computes a new gexResult, before calling
+// currentDomain()/fullRange() for that same pass.
+let lastGexActiveRange = null;
+function gexActiveRange(gexResult){
+  if(!gexResult || !gexResult.perStrike) return null;
+  const pts = gexResult.perStrike.filter(p=>p.gex!=null).sort((a,b)=>a.strike-b.strike);
+  if(!pts.length) return null;
+  const maxAbs = Math.max(1, ...pts.map(p=>Math.abs(p.gex)));
+  const threshold = maxAbs*0.004; // ~0.4% of the peak — smallest bar that renders as more than a hairline
+  let first=-1, last=-1;
+  pts.forEach((p,i)=>{ if(Math.abs(p.gex)>=threshold){ if(first===-1) first=i; last=i; } });
+  if(first===-1) return null;
+  const lo = pts[first].strike, hi = pts[last].strike;
+  const pad = Math.max((hi-lo)*0.04, 50); // small breathing room so edge bars aren't flush against the axis
+  return [lo-pad, hi+pad];
+}
+
+function fullRange(rows){
+  if(chartMetric==='gex' && lastGexActiveRange) return lastGexActiveRange;
+  const strikes = rows.map(r=>r.strike);
+  return [Math.min(...strikes), Math.max(...strikes)];
+}
+function currentDomain(rows){
+  const [fMin,fMax] = fullRange(rows);
+  if(viewMin==null || viewMax==null) return [fMin,fMax];
+  return [Math.max(fMin,viewMin), Math.min(fMax,viewMax)];
+}
+function zoomBy(factor, centerVal, rows){
+  const [fMin,fMax] = fullRange(rows);
+  if(fMax<=fMin) return;
+  const [curMin,curMax] = currentDomain(rows);
+  const curWidth = curMax-curMin;
+  const c = centerVal!=null ? centerVal : (curMin+curMax)/2;
+  const fullWidth = fMax-fMin;
+  const minWidth = Math.max(100, fullWidth*0.02);
+  let newWidth = Math.min(fullWidth, Math.max(minWidth, curWidth*factor));
+  let newMin = c - (c-curMin)*(newWidth/curWidth);
+  let newMax = newMin+newWidth;
+  if(newMin<fMin){ newMin=fMin; newMax=fMin+newWidth; }
+  if(newMax>fMax){ newMax=fMax; newMin=fMax-newWidth; }
+  if(newWidth >= fullWidth-1){ viewMin=null; viewMax=null; }
+  else { viewMin=newMin; viewMax=newMax; }
+  renderAll();
+}
+function panBy(deltaStrikes, rows){
+  if(viewMin==null) return;
+  const [fMin,fMax] = fullRange(rows);
+  const w = viewMax-viewMin;
+  let newMin = viewMin+deltaStrikes, newMax = viewMax+deltaStrikes;
+  if(newMin<fMin){ newMin=fMin; newMax=fMin+w; }
+  if(newMax>fMax){ newMax=fMax; newMin=fMax-w; }
+  viewMin=newMin; viewMax=newMax;
+  renderAll();
+}
+function resetZoom(){ viewMin=null; viewMax=null; renderAll(); }
+
+/* =========================================================
+   SVG CHARTS
+========================================================= */
+const ns = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs){ const e=document.createElementNS(ns,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+
+function drawChart(svgId, allRows, visibleRows, metric, isTop, domain, underlying){
+  const svg = document.getElementById(svgId);
+  const W=1200, H = svgId==='chartTop' ? 230 : 140;
+  const padL=48, padR=16, padT = isTop ? 50 : 26, padB = isTop ? 30 : 12;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML='';
+  svg.dataset.padL=padL; svg.dataset.padR=padR; svg.dataset.padT=padT; svg.dataset.padB=padB; svg.dataset.w=W; svg.dataset.h=H;
+
+  if(!allRows || !allRows.length){
+    svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" class="axis-label" font-size="13">no data for this tab yet — wait for auto-refresh or paste it manually below</text>`;
+    return;
+  }
+
+  const [minS, maxS] = domain;
+  svg.dataset.minS=minS; svg.dataset.maxS=maxS;
+  const xScale = v => padL + ((v-minS)/(maxS-minS||1))*(W-padL-padR);
+
+  let callVals, putVals;
+  if(metric==='oi'){ callVals=visibleRows.map(r=>r.callOI); putVals=visibleRows.map(r=>r.putOI); }
+  else { callVals=visibleRows.map(r=>r.callVol); putVals=visibleRows.map(r=>r.putVol); }
+
+  const maxV = Math.max(1, ...callVals, ...putVals);
+  const usableH = H-padT-padB;
+  const yScale = v => (v/maxV)*usableH;
+
+  [0,0.25,0.5,0.75,1].forEach(f=>{
+    const y = padT + usableH*(1-f);
+    svg.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:y,y2:y,class:'grid-line'}));
+    const t = svgEl('text',{x:padL-10,y:y+4,class:'axis-label','text-anchor':'end'});
+    t.textContent = Math.round(maxV*f);
+    svg.appendChild(t);
+  });
+
+  const bw = Math.max(1.6, (W-padL-padR)/Math.max(visibleRows.length,1)*0.34);
+  visibleRows.forEach((r,i)=>{
+    const x = xScale(r.strike);
+    const cH = yScale(callVals[i]), pH = yScale(putVals[i]);
+    if(callVals[i]!==0) svg.appendChild(svgEl('rect',{x:x-bw-1,y:padT+usableH-cH,width:bw,height:cH,fill:'var(--call)',rx:1.5}));
+    if(putVals[i]!==0) svg.appendChild(svgEl('rect',{x:x+1,y:padT+usableH-pH,width:bw,height:pH,fill:'var(--put)',rx:1.5}));
+  });
+
+  if(isTop){
+    const everyN = Math.max(1, Math.ceil(visibleRows.length/14));
+    visibleRows.forEach((r,i)=>{
+      if(i%everyN===0){
+        const t = svgEl('text',{x:xScale(r.strike),y:H-padB+16,class:'strike-label','text-anchor':'middle'});
+        t.textContent = r.strike;
+        svg.appendChild(t);
+      }
+    });
+  }
+
+  const mp = computeMaxPain(allRows);
+  if(mp!==null && mp>=minS && mp<=maxS){
+    const x = xScale(mp);
+    svg.appendChild(svgEl('line',{x1:x,x2:x,y1:padT,y2:H-padB,stroke:'var(--maxpain)','stroke-width':1.4,'stroke-dasharray':'4,3'}));
+    const mpText = 'Max Pain '+mp.toLocaleString('en-US');
+    const flagW = Math.max(90, mpText.length*7.3+16), flagH=20;
+    const fx = Math.min(Math.max(x, padL+flagW/2), W-padR-flagW/2);
+    svg.appendChild(svgEl('rect',{x:fx-flagW/2,y:5,width:flagW,height:flagH,rx:4,fill:'var(--maxpain)'}));
+    const ft = svgEl('text',{x:fx,y:19.5,class:'flag','text-anchor':'middle'});
+    ft.textContent = mpText;
+    svg.appendChild(ft);
+  }
+
+  if(isTop && underlying && underlying.price>=minS && underlying.price<=maxS){
+    const x = xScale(underlying.price);
+    svg.appendChild(svgEl('line',{x1:x,x2:x,y1:padT,y2:H-padB,stroke:'var(--spot)','stroke-width':1.4,'stroke-dasharray':'2,3'}));
+    const spotText = 'DAX '+underlying.price.toLocaleString('en-US',{maximumFractionDigits:0});
+    const flagW2 = Math.max(80, spotText.length*7.3+16), flagH2=20;
+    const fx2 = Math.min(Math.max(x, padL+flagW2/2), W-padR-flagW2/2);
+    const flagY2 = 29; // stacked below the Max Pain flag so they don't overlap
+    svg.appendChild(svgEl('rect',{x:fx2-flagW2/2,y:flagY2,width:flagW2,height:flagH2,rx:4,fill:'var(--spot)'}));
+    const ft2 = svgEl('text',{x:fx2,y:flagY2+14.5,class:'flag','text-anchor':'middle'});
+    ft2.textContent = spotText;
+    svg.appendChild(ft2);
+  }
+
+  const crosshair = svgEl('line',{x1:0,x2:0,y1:padT,y2:H-padB,class:'crosshair'});
+  crosshair.setAttribute('id', svgId+'-crosshair');
+  svg.appendChild(crosshair);
+  const hitArea = svgEl('rect',{x:padL,y:padT,width:W-padL-padR,height:usableH,fill:'transparent'});
+  hitArea.setAttribute('id', svgId+'-hit');
+  svg.appendChild(hitArea);
+}
+
+// Diverging bar chart for GEX: green above the zero line (positive/net
+// call-dominant gamma), red below (put-dominant). Gamma flip is the
+// nearest thing to "Max Pain" here — a key modeled level — so it gets the
+// same flag treatment; the DAX reference line stays for orientation in
+// both modes. Call/Put wall + net total go in the caption line, not more
+// flags, to keep the chart itself readable.
+function drawGexChart(svgId, gexResult, domain, underlying, failReason){
+  const svg = document.getElementById(svgId);
+  // Taller than the old OI/Volume split — GEX is the only chart on screen in GEX mode
+  // (the Volume card is hidden), so it gets the vertical space Volume would have used.
+  const W=1200, H=480;
+  const padL=48, padR=16, padT=50, padB=34;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML='';
+  svg.dataset.padL=padL; svg.dataset.padR=padR; svg.dataset.padT=padT; svg.dataset.padB=padB; svg.dataset.w=W; svg.dataset.h=H;
+
+  const [minS, maxS] = domain;
+  svg.dataset.minS=minS; svg.dataset.maxS=maxS;
+
+  if(!gexResult || !gexResult.perStrike || !gexResult.perStrike.length){
+    const msg = failReason ? `GEX unavailable: ${failReason}` : 'GEX unavailable for this tab — needs a resolved underlying price and settlement data on both sides';
+    const words = msg.split(' ');
+    const lines = []; let line = '';
+    words.forEach(w=>{ if((line+' '+w).length>85){ lines.push(line); line=w; } else { line = line? line+' '+w : w; } });
+    if(line) lines.push(line);
+    svg.innerHTML = lines.map((l,i)=>
+      `<text x="${W/2}" y="${H/2-((lines.length-1)*9)+i*18}" text-anchor="middle" class="axis-label" font-size="13">${l}</text>`
+    ).join('');
+    return;
+  }
+
+  const visible = gexResult.perStrike.filter(p=>p.strike>=minS && p.strike<=maxS && p.gex!=null);
+  const drawPointsAll = visible.length>1 ? visible : gexResult.perStrike.filter(p=>p.gex!=null);
+  const xScale = v => padL + ((v-minS)/(maxS-minS||1))*(W-padL-padR);
+  const usableH = H-padT-padB;
+  const zeroY = padT + usableH/2;
+
+  // cumulative line (running GEX total, low→high strike) — same visible window as the bars.
+  const cumSeries = gexResult.cumSeries || [];
+  const cumVisible = cumSeries.filter(p=>p.strike>=minS && p.strike<=maxS);
+  const cumPointsAll = cumVisible.length>1 ? cumVisible : cumSeries;
+
+  // shared y-scale: must fit both the tallest bar and the cumulative line's swing, or one clips the other.
+  const maxAbs = Math.max(1, ...drawPointsAll.map(p=>Math.abs(p.gex)), ...cumPointsAll.map(p=>Math.abs(p.cum)));
+  const yScale = v => (Math.abs(v)/maxAbs)*(usableH/2);
+  const toY = v => zeroY - (v/maxAbs)*(usableH/2); // signed: for the line, which crosses zero
+
+  // The far tails of an ODAX chain carry a stray resting contract or two at strikes
+  // nowhere near the money — gamma there rounds to ~0, so the bar is invisible but the
+  // cumulative line still walked through it, dragging a flat "ghost" segment out to the
+  // edges of the full strike range. Trim both the bars and the line down to the span
+  // between the first and last strike whose |GEX| actually clears a visible threshold,
+  // so what's drawn starts and ends exactly where the real data does.
+  const GEX_VISIBLE_FRAC = 0.004; // ~0.4% of the chart's max swing ≈ smallest bar that renders as more than a hairline
+  const threshold = maxAbs * GEX_VISIBLE_FRAC;
+  let firstActive=-1, lastActive=-1;
+  drawPointsAll.forEach((p,i)=>{ if(Math.abs(p.gex)>=threshold){ if(firstActive===-1) firstActive=i; lastActive=i; } });
+  const drawPoints = firstActive===-1 ? drawPointsAll : drawPointsAll.slice(firstActive, lastActive+1);
+  const loStrike = drawPoints.length ? drawPoints[0].strike : null;
+  const hiStrike = drawPoints.length ? drawPoints[drawPoints.length-1].strike : null;
+  const cumPoints = (loStrike==null) ? cumPointsAll : cumPointsAll.filter(p=>p.strike>=loStrike && p.strike<=hiStrike);
+
+  [-1,-0.5,0,0.5,1].forEach(f=>{
+    const y = zeroY - f*(usableH/2);
+    svg.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:y,y2:y,class:'grid-line'}));
+    const t = svgEl('text',{x:padL-10,y:y+4,class:'axis-label','text-anchor':'end'});
+    t.textContent = (maxAbs*f/1e6).toFixed(maxAbs*Math.abs(f)>=1e6?0:1)+'M';
+    svg.appendChild(t);
+  });
+  svg.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:zeroY,y2:zeroY,stroke:'#333c4c','stroke-width':1}));
+
+  // Bar width from the actual local spacing between active strikes, not the full chart
+  // width divided by count — trimming the inactive tails shrinks the count without
+  // changing the strikes' pixel positions, so the old width/count formula would have
+  // over-widened the remaining bars.
+  let bw = 6;
+  if(drawPoints.length>1){
+    const gaps = [];
+    for(let i=1;i<drawPoints.length;i++) gaps.push(Math.abs(xScale(drawPoints[i].strike)-xScale(drawPoints[i-1].strike)));
+    gaps.sort((a,b)=>a-b);
+    bw = Math.max(1.6, gaps[Math.floor(gaps.length/2)]*0.55);
+  }
+  drawPoints.forEach(p=>{
+    const x = xScale(p.strike);
+    const h = yScale(p.gex);
+    const y = p.gex>=0 ? zeroY-h : zeroY;
+    svg.appendChild(svgEl('rect',{x:x-bw/2,y,width:bw,height:h,fill:p.gex>=0?'var(--green)':'var(--red)',rx:1.5}));
+  });
+
+  // Cumulative GEX line on top of the bars — same idea as the reference chart: while
+  // it's below zero the dealer book is net negative-gamma (trend-following, "sell the
+  // dip / buy the rip" hedging = amplifies moves) up to that strike; above zero it's
+  // net positive-gamma (mean-reverting hedging = dampens moves). Where it crosses zero
+  // is the gamma flip, marked separately below with its own flag.
+  if(cumPoints.length>1){
+    const linePts = cumPoints.map(p=>`${xScale(p.strike)},${toY(p.cum)}`).join(' ');
+    svg.appendChild(svgEl('polyline',{points:linePts, fill:'none', stroke:'#b9c2d4', 'stroke-width':1.6, opacity:0.85}));
+    cumPoints.forEach(p=>{
+      svg.appendChild(svgEl('circle',{cx:xScale(p.strike), cy:toY(p.cum), r:1.6, fill:'#b9c2d4', opacity:0.85}));
+    });
+  }
+
+  const everyN = Math.max(1, Math.ceil(drawPoints.length/14));
+  drawPoints.forEach((p,i)=>{
+    if(i%everyN===0){
+      const t = svgEl('text',{x:xScale(p.strike),y:H-padB+16,class:'strike-label','text-anchor':'middle'});
+      t.textContent = p.strike;
+      svg.appendChild(t);
+    }
+  });
+
+  const flip = gexResult.gammaFlip;
+  if(flip!=null && flip>=minS && flip<=maxS){
+    const x = xScale(flip);
+    svg.appendChild(svgEl('line',{x1:x,x2:x,y1:padT,y2:H-padB,stroke:'var(--maxpain)','stroke-width':1.4,'stroke-dasharray':'4,3'}));
+    const flipText = 'Gamma Flip '+Math.round(flip).toLocaleString('en-US');
+    const flagW = Math.max(90, flipText.length*7.3+16), flagH=20;
+    const fx = Math.min(Math.max(x, padL+flagW/2), W-padR-flagW/2);
+    svg.appendChild(svgEl('rect',{x:fx-flagW/2,y:5,width:flagW,height:flagH,rx:4,fill:'var(--maxpain)'}));
+    const ft = svgEl('text',{x:fx,y:19.5,class:'flag','text-anchor':'middle'});
+    ft.textContent = flipText;
+    svg.appendChild(ft);
+  }
+
+  if(underlying && underlying.price>=minS && underlying.price<=maxS){
+    const x = xScale(underlying.price);
+    svg.appendChild(svgEl('line',{x1:x,x2:x,y1:padT,y2:H-padB,stroke:'var(--spot)','stroke-width':1.4,'stroke-dasharray':'2,3'}));
+    const spotText = 'DAX '+underlying.price.toLocaleString('en-US',{maximumFractionDigits:0});
+    const flagW2 = Math.max(80, spotText.length*7.3+16), flagH2=20;
+    const fx2 = Math.min(Math.max(x, padL+flagW2/2), W-padR-flagW2/2);
+    const flagY2 = 29;
+    svg.appendChild(svgEl('rect',{x:fx2-flagW2/2,y:flagY2,width:flagW2,height:flagH2,rx:4,fill:'var(--spot)'}));
+    const ft2 = svgEl('text',{x:fx2,y:flagY2+14.5,class:'flag','text-anchor':'middle'});
+    ft2.textContent = spotText;
+    svg.appendChild(ft2);
+  }
+
+  const crosshair = svgEl('line',{x1:0,x2:0,y1:padT,y2:H-padB,class:'crosshair'});
+  crosshair.setAttribute('id', svgId+'-crosshair');
+  svg.appendChild(crosshair);
+  const hitArea = svgEl('rect',{x:padL,y:padT,width:W-padL-padR,height:usableH,fill:'transparent'});
+  hitArea.setAttribute('id', svgId+'-hit');
+  svg.appendChild(hitArea);
+}
+
+/* =========================================================
+   HEATMAP — strike × SESSION grid for the one expiry currently
+   selected on the tab bar (not a different axis across expiries —
+   switching tabs changes which chain the heatmap shows, exactly
+   like the OI/GEX charts do). Call and Put are separate columns
+   per session date, matching how the reference layout read.
+========================================================= */
+let chartMetric = 'oi'; // 'oi' | 'gex' | 'heatmap'
+let heatmapMetric = 'oi'; // 'oi' | 'oichange' | 'volume'
+let heatmapSortDir = 'asc'; // 'asc' | 'desc' — strike column sort
+// Auto-scroll to the ATM row on a *fresh* heatmap open or an expiry-tab switch, but never on a
+// sub-metric toggle, a sort click, or a background data refresh — those must leave the user's
+// scroll position alone. The flag stays "pending" until a render actually finds an ATM row to
+// scroll to (data may still be loading on first open), then clears itself.
+let heatmapPendingAutoScroll = false;
+let lastHeatmapActiveKey = null;
+
+function hexToRgb(hex){
+  const h = hex.replace('#','');
+  return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
+}
+function lerpColor(hexA, hexB, t){
+  const a = hexToRgb(hexA), b = hexToRgb(hexB);
+  const r = Math.round(a.r+(b.r-a.r)*t), g = Math.round(a.g+(b.g-a.g)*t), bl = Math.round(a.b+(b.b-a.b)*t);
+  return `rgb(${r},${g},${bl})`;
+}
+// Sequential (OI/Volume): panel-dark → teal. Diverging (OI Change): red ↔ panel-dark ↔ teal.
+function heatCellColor(val, maxAbs, metric){
+  const t = maxAbs>0 ? Math.min(1, Math.abs(val)/maxAbs) : 0;
+  if(metric==='oichange') return val>=0 ? lerpColor('#171c25','#3ecf8e',t) : lerpColor('#171c25','#f2545b',t);
+  return lerpColor('#171c25','#3ecf8e',t);
+}
+
+// Builds the grid for ONE expiry: columns = its last HEATMAP_SESSION_COUNT sessions
+// (newest first), rows = every strike that appeared in any of those sessions. A strike/
+// session/side with no data just has no cell — left blank rather than drawn as a 0.
+function buildHistoryGrid(exp, metric){
+  const sessions = historyStore[exp.key] || [];
+  const cols = sessions.slice(0, HEATMAP_SESSION_COUNT); // visible columns, newest→oldest
+  const sessionMaps = sessions.map(s=> new Map(s.rows.map(r=>[r.strike,r])));
+
+  const strikeSet = new Set();
+  cols.forEach(s=> s.rows.forEach(r=> strikeSet.add(r.strike)));
+  const strikes = [...strikeSet].sort((a,b)=> heatmapSortDir==='asc' ? a-b : b-a);
+
+  // cell(strike, colIndex, side) -> {val, display} ; side = 'call' | 'put'
+  function cellFor(strike, ci, side){
+    const row = sessionMaps[ci] ? sessionMaps[ci].get(strike) : null;
+    if(metric==='oichange'){
+      const prevRow = sessionMaps[ci+1] ? sessionMaps[ci+1].get(strike) : null;
+      const cur = row ? (side==='call'?row.callOI:row.putOI) : 0;
+      const prev = prevRow ? (side==='call'?prevRow.callOI:prevRow.putOI) : 0;
+      if(!row && !prevRow) return null;
+      if(cur===0 && prev===0) return null;
+      return cur-prev;
+    }
+    if(!row) return null;
+    const v = metric==='volume' ? (side==='call'?row.callVol:row.putVol) : (side==='call'?row.callOI:row.putOI);
+    return v===0 ? null : v;
+  }
+
+  let maxAbs = 1;
+  strikes.forEach(s=> cols.forEach((_,ci)=>{
+    ['call','put'].forEach(side=>{ const v=cellFor(s,ci,side); if(v!=null) maxAbs=Math.max(maxAbs, Math.abs(v)); });
+  }));
+
+  return { cols, strikes, cellFor, maxAbs };
+}
+
+function renderHeatmapLegend(metric){
+  const el = document.getElementById('heatmapLegend');
+  if(metric==='oichange'){
+    el.innerHTML = `<span>Decrease</span><div class="heat-gradient" style="background:linear-gradient(90deg,#f2545b,#171c25,#3ecf8e);"></div><span>Increase</span>`;
+  } else {
+    const label = metric==='volume' ? 'Volume' : 'Open Interest';
+    el.innerHTML = `<span>Low</span><div class="heat-gradient" style="background:linear-gradient(90deg,#171c25,#3ecf8e);"></div><span>High ${label}</span>`;
+  }
+}
+
+function fmtHeatDate(d){
+  return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
+}
+
+function drawHeatmapTable(container, exp, grid, metric){
+  const { cols, strikes, cellFor, maxAbs } = grid;
+  container.innerHTML = '';
+
+  if(!cols.length || !strikes.length){
+    const loading = !!historyFetchPromises[exp.key];
+    const msg = loading
+      ? `Loading session history for ${exp.label} (${exp.type==='M'?'Monthly':'Weekly'})…`
+      : 'No session history yet for this expiry — reopen Heatmap to fetch it';
+    container.innerHTML = `<div class="axis-label" style="padding:30px 14px;text-align:center;">${msg}</div>`;
+    return;
+  }
+
+  // ATM row: the strike closest to this expiry's resolved underlying price, bolded like the reference.
+  const rows = dataStore[exp.key] || [];
+  const und = rows.length ? resolveUnderlying(exp, rows) : null;
+  let atmStrike = null;
+  if(und){
+    let best=Infinity;
+    strikes.forEach(s=>{ const d=Math.abs(s-und.price); if(d<best){ best=d; atmStrike=s; } });
+  }
+
+  const table = document.createElement('table');
+  table.className = 'heatmap-table';
+
+  const thead = document.createElement('thead');
+  const dateRow = document.createElement('tr'); dateRow.className = 'heat-date-row';
+  const strikeHead = document.createElement('th');
+  strikeHead.className = 'heat-strike-head'; strikeHead.rowSpan = 2;
+  strikeHead.innerHTML = `STRIKE <span class="sort-arrows">
+      <span class="sort-arrow ${heatmapSortDir==='asc'?'active':''}" data-dir="asc">▲</span>
+      <span class="sort-arrow ${heatmapSortDir==='desc'?'active':''}" data-dir="desc">▼</span>
+    </span>`;
+  dateRow.appendChild(strikeHead);
+  cols.forEach((s,ci)=>{
+    const th = document.createElement('th');
+    th.colSpan = 2;
+    if(ci>0) th.className = 'heat-group-border';
+    th.textContent = fmtHeatDate(s.date);
+    dateRow.appendChild(th);
+  });
+  thead.appendChild(dateRow);
+
+  const sideRow = document.createElement('tr'); sideRow.className = 'heat-side-row';
+  cols.forEach((s,ci)=>{
+    const c = document.createElement('th'); c.textContent = 'C';
+    if(ci>0) c.className = 'heat-group-border';
+    sideRow.appendChild(c);
+    const p = document.createElement('th'); p.textContent = 'P';
+    sideRow.appendChild(p);
+  });
+  thead.appendChild(sideRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  strikes.forEach(strike=>{
+    const tr = document.createElement('tr');
+    const th = document.createElement('th');
+    if(strike===atmStrike){
+      tr.className = 'heat-atm';
+      th.innerHTML = `<span class="heat-atm-badge">${strike.toLocaleString('en-US')}</span>`;
+    } else {
+      th.textContent = strike.toLocaleString('en-US');
+    }
+    tr.appendChild(th);
+    cols.forEach((_,ci)=>{
+      ['call','put'].forEach((side,si)=>{
+        const td = document.createElement('td');
+        if(si===0 && ci>0) td.classList.add('heat-group-border');
+        const v = cellFor(strike, ci, side);
+        if(v==null){
+          td.className += ' heat-empty';
+        } else {
+          td.textContent = (metric==='oichange' && v>0 ? '+' : '') + v.toLocaleString('en-US');
+          td.style.background = heatCellColor(v, maxAbs, metric);
+        }
+        tr.appendChild(td);
+      });
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  container.appendChild(table);
+
+  // Jump to where the price currently sits, but only on a fresh open / tab switch — see
+  // heatmapPendingAutoScroll's declaration for why this must not fire on every render.
+  if(heatmapPendingAutoScroll && atmStrike!=null){
+    const atmRow = container.querySelector('tr.heat-atm');
+    if(atmRow){
+      atmRow.scrollIntoView({ block:'center' });
+      heatmapPendingAutoScroll = false;
+    }
+  }
+
+  container.querySelectorAll('.sort-arrow').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const dir = el.dataset.dir;
+      if(heatmapSortDir===dir) return;
+      heatmapSortDir = dir;
+      renderHeatmap();
+    });
+  });
+}
+
+function renderHeatmap(){
+  const exp = ALL_EXPIRIES.find(e=>e.key===activeKey);
+  if(!exp) return;
+  document.getElementById('topChartLabel').textContent = 'Heatmap';
+  const label = heatmapMetric==='oi' ? 'Open Interest' : heatmapMetric==='volume' ? 'Volume' : 'OI Change (vs previous session)';
+  document.getElementById('heatmapMetricLabel').textContent = `${label} — ${exp.label} (${exp.type==='M'?'Monthly':'Weekly'})`;
+  renderHeatmapLegend(heatmapMetric);
+  const grid = buildHistoryGrid(exp, heatmapMetric);
+  drawHeatmapTable(document.getElementById('heatmapScroll'), exp, grid, heatmapMetric);
+}
+
+// Shows/hides the two chart "pages" (OI/GEX bar+volume charts vs. the heatmap table) that
+// share this one card. Pure visibility — text content for OI/GEX stays owned by renderAll(),
+// heatmap's own label by renderHeatmap(), so this never fights either of them.
+function applyChartModeVisibility(){
+  const isHeat = chartMetric==='heatmap';
+  document.getElementById('chartTop').style.display = isHeat ? 'none' : '';
+  document.getElementById('heatmapWrap').style.display = isHeat ? 'block' : 'none';
+  document.getElementById('heatmapSubToggle').style.display = isHeat ? 'flex' : 'none';
+  document.getElementById('zoomResetBtn').style.display = isHeat ? 'none' : '';
+  document.getElementById('zoomOutBtn').style.display = isHeat ? 'none' : '';
+  document.getElementById('zoomInBtn').style.display = isHeat ? 'none' : '';
+  document.getElementById('chartExpiry').style.display = isHeat ? 'none' : '';
+  document.getElementById('heatmapMetricLabel').style.display = isHeat ? 'inline' : 'none';
+  if(isHeat) document.getElementById('gexCaption').style.display = 'none';
+  document.getElementById('volumeCard').style.display = (chartMetric==='gex' || isHeat) ? 'none' : '';
+  document.getElementById('chartLegend').style.display = isHeat ? 'none' : ''; // the Call/Put/Max Pain (or GEX) swatches above the chart don't apply to the heatmap, which has its own gradient legend
+}
+
+function wireHover(rows, gexResult){
+  const svgTop=document.getElementById('chartTop'), svgBottom=document.getElementById('chartBottom');
+  const hitTop=document.getElementById('chartTop-hit'), hitBottom=document.getElementById('chartBottom-hit');
+  const tooltip=document.getElementById('tooltip'), app=document.getElementById('app');
+  if(!rows || !rows.length || !hitTop || !hitBottom) return;
+  const gexByStrike = new Map();
+  if(gexResult && gexResult.perStrike) gexResult.perStrike.forEach(p=> gexByStrike.set(p.strike, p));
+
+  function valAt(svg, clientX){
+    const rect = svg.getBoundingClientRect();
+    const W=Number(svg.dataset.w), padL=Number(svg.dataset.padL), padR=Number(svg.dataset.padR);
+    const minS=Number(svg.dataset.minS), maxS=Number(svg.dataset.maxS);
+    const scaleX = W/rect.width;
+    const mx = (clientX-rect.left)*scaleX;
+    return minS + (mx-padL)/(W-padL-padR)*(maxS-minS);
+  }
+  function showTooltip(nearest){
+    [svgTop, svgBottom].forEach(s=>{
+      const sMinS=Number(s.dataset.minS), sMaxS=Number(s.dataset.maxS);
+      const sPadL=Number(s.dataset.padL), sPadR=Number(s.dataset.padR), sW=Number(s.dataset.w);
+      const cx = sPadL + ((nearest.strike-sMinS)/(sMaxS-sMinS||1))*(sW-sPadL-sPadR);
+      const ch = s.querySelector('.crosshair');
+      if(ch){ ch.setAttribute('x1',cx); ch.setAttribute('x2',cx); ch.style.opacity='0.7'; }
+    });
+    const g = gexByStrike.get(nearest.strike);
+    if(g){
+      const fmtM = (v)=> (Math.abs(v)>=1e6 ? (v/1e6).toFixed(2)+'M' : v.toFixed(0));
+      tooltip.innerHTML = `<span class="tt-strike">Strike ${nearest.strike}</span>
+        <div class="sec">GEX (modeled)</div>
+        <div class="row ${g.gex>=0?'call':'put'}"><span>Net GEX</span><b>${g.gex!=null?'€'+fmtM(g.gex):'—'}</b></div>
+        <div class="row"><span>IV</span><b>${g.iv!=null?(g.iv*100).toFixed(1)+'%':'—'}</b></div>
+        <div class="sec">Open Interest</div>
+        <div class="row call"><span>Call OI</span><b>${nearest.callOI}</b></div>
+        <div class="row put"><span>Put OI</span><b>${nearest.putOI}</b></div>`;
+    } else {
+      tooltip.innerHTML = `<span class="tt-strike">Strike ${nearest.strike}</span>
+        <div class="sec">Open Interest</div>
+        <div class="row call"><span>Call OI</span><b>${nearest.callOI}</b></div>
+        <div class="row put"><span>Put OI</span><b>${nearest.putOI}</b></div>
+        <div class="sec">Volume</div>
+        <div class="row call"><span>Call Vol</span><b>${nearest.callVol}</b></div>
+        <div class="row put"><span>Put Vol</span><b>${nearest.putVol}</b></div>`;
+    }
+    tooltip.style.display='block';
+  }
+  function nearestRow(val){
+    let nearest=rows[0], nd=Infinity;
+    rows.forEach(r=>{ const d=Math.abs(r.strike-val); if(d<nd){nd=d;nearest=r;} });
+    return nearest;
+  }
+  function handleMove(svg, e){
+    if(isDragging) return;
+    showTooltip(nearestRow(valAt(svg, e.clientX)));
+  }
+  function handleLeave(){
+    tooltip.style.display='none';
+    [svgTop, svgBottom].forEach(s=>{ const ch=s.querySelector('.crosshair'); if(ch) ch.style.opacity='0'; });
+  }
+  hitTop.onmousemove=(e)=>handleMove(svgTop,e);
+  hitBottom.onmousemove=(e)=>handleMove(svgBottom,e);
+  hitTop.onmouseleave=handleLeave;
+  hitBottom.onmouseleave=handleLeave;
+
+  /* ---- zoom (wheel) + pan (drag) + pinch (touch) ---- */
+  let isDragging = false, dragStartX = 0, dragStartMin = 0, dragStartMax = 0;
+  let pinchStartDist = null, pinchStartMin = 0, pinchStartMax = 0;
+
+  function attachInteractions(svg, hit){
+    hit.addEventListener('wheel', (e)=>{
+      e.preventDefault();
+      const val = valAt(svg, e.clientX);
+      const factor = e.deltaY>0 ? 1.18 : 1/1.18;
+      zoomBy(factor, val, rows);
+    }, { passive:false });
+
+    hit.addEventListener('mousedown', (e)=>{
+      isDragging = true; dragStartX = e.clientX;
+      const [curMin,curMax] = currentDomain(rows);
+      dragStartMin = curMin; dragStartMax = curMax;
+      handleLeave();
+    });
+    hit.addEventListener('dblclick', (e)=>{
+      zoomBy(0.5, valAt(svg, e.clientX), rows);
+    });
+
+    hit.addEventListener('touchstart', (e)=>{
+      if(e.touches.length===2){
+        const dx = e.touches[0].clientX-e.touches[1].clientX;
+        const dy = e.touches[0].clientY-e.touches[1].clientY;
+        pinchStartDist = Math.hypot(dx,dy);
+        const [curMin,curMax] = currentDomain(rows);
+        pinchStartMin = curMin; pinchStartMax = curMax;
+      } else if(e.touches.length===1){
+        isDragging = true; dragStartX = e.touches[0].clientX;
+        const [curMin,curMax] = currentDomain(rows);
+        dragStartMin = curMin; dragStartMax = curMax;
+      }
+    }, { passive:true });
+    hit.addEventListener('touchmove', (e)=>{
+      if(e.touches.length===2 && pinchStartDist!=null){
+        e.preventDefault();
+        const dx = e.touches[0].clientX-e.touches[1].clientX;
+        const dy = e.touches[0].clientY-e.touches[1].clientY;
+        const dist = Math.hypot(dx,dy);
+        const ratio = pinchStartDist/Math.max(dist,1);
+        const mid = (pinchStartMin+pinchStartMax)/2;
+        const width0 = pinchStartMax-pinchStartMin;
+        const [fMin,fMax] = fullRange(rows);
+        const fullWidth = fMax-fMin;
+        const minWidth = Math.max(100, fullWidth*0.02);
+        let newWidth = Math.min(fullWidth, Math.max(minWidth, width0*ratio));
+        let newMin = mid-newWidth/2, newMax = mid+newWidth/2;
+        if(newMin<fMin){ newMin=fMin; newMax=fMin+newWidth; }
+        if(newMax>fMax){ newMax=fMax; newMin=fMax-newWidth; }
+        if(newWidth>=fullWidth-1){ viewMin=null; viewMax=null; } else { viewMin=newMin; viewMax=newMax; }
+        renderAll();
+      } else if(e.touches.length===1 && isDragging){
+        const rect = svg.getBoundingClientRect();
+        const W=Number(svg.dataset.w), padL=Number(svg.dataset.padL), padR=Number(svg.dataset.padR);
+        const scaleX = W/rect.width;
+        const dxPix = (e.touches[0].clientX-dragStartX)*scaleX;
+        const domainWidth = dragStartMax-dragStartMin;
+        const dxVal = -(dxPix/(W-padL-padR))*domainWidth;
+        const [fMin,fMax] = fullRange(rows);
+        let newMin=dragStartMin+dxVal, newMax=dragStartMax+dxVal;
+        if(newMin<fMin){ newMin=fMin; newMax=fMin+domainWidth; }
+        if(newMax>fMax){ newMax=fMax; newMin=fMax-domainWidth; }
+        viewMin=newMin; viewMax=newMax;
+        renderAll();
+      }
+    }, { passive:false });
+    hit.addEventListener('touchend', ()=>{ isDragging=false; pinchStartDist=null; });
+  }
+  attachInteractions(svgTop, hitTop);
+  attachInteractions(svgBottom, hitBottom);
+
+  window.onmousemove = (e)=>{
+    if(!isDragging) return;
+    const svg = svgTop;
+    const rect = svg.getBoundingClientRect();
+    const W=Number(svg.dataset.w), padL=Number(svg.dataset.padL), padR=Number(svg.dataset.padR);
+    const scaleX = W/rect.width;
+    const dxPix = (e.clientX-dragStartX)*scaleX;
+    const domainWidth = dragStartMax-dragStartMin;
+    const dxVal = -(dxPix/(W-padL-padR))*domainWidth;
+    const [fMin,fMax] = fullRange(rows);
+    let newMin=dragStartMin+dxVal, newMax=dragStartMax+dxVal;
+    if(newMin<fMin){ newMin=fMin; newMax=fMin+domainWidth; }
+    if(newMax>fMax){ newMax=fMax; newMin=fMax-domainWidth; }
+    if(viewMin==null && Math.abs(dxPix) < 2) return; // avoid jitter-triggering a zoomed state on plain click
+    viewMin=newMin; viewMax=newMax;
+    renderAll();
+  };
+  window.onmouseup = ()=>{ isDragging=false; };
+}
+
+function renderAll(){
+  if(chartMetric==='heatmap'){
+    // heatmap owns its own render path — nothing below this applies to it. Still react to
+    // whichever expiry tab is active now, same as the OI/GEX charts do on a tab click.
+    applyChartModeVisibility();
+    const exp = ALL_EXPIRIES.find(e=>e.key===activeKey);
+    if(exp){
+      if(activeKey !== lastHeatmapActiveKey){ heatmapPendingAutoScroll = true; lastHeatmapActiveKey = activeKey; }
+      ensureHistoryData(exp);
+      renderHeatmap();
+    }
+    return;
+  }
+
+  const rows = dataStore[activeKey] || [];
+  const exp = ALL_EXPIRIES.find(e=>e.key===activeKey);
+  const und = (exp && rows.length) ? resolveUnderlying(exp, rows) : null;
+  renderStats(rows, und);
+
+  const gexCaptionEl = document.getElementById('gexCaption');
+  const topLabelEl = document.getElementById('topChartLabel');
+  applyChartModeVisibility();
+
+  if(rows.length){
+    // GEX result (and its active strike range) must be computed BEFORE currentDomain()
+    // below, since fullRange()/currentDomain() consult lastGexActiveRange to decide the
+    // chart's default/boundary domain in GEX mode — doing it after would use last tab's
+    // stale range for this render.
+    let gexResult = null, gexFailReason = null;
+    if(chartMetric==='gex'){
+      const base = resolveBaseUnderlying(exp, rows); // EOD-consistent forward, not live-adjusted
+      // Trade date for T: NOT parsed from the detail response's header.date —
+      // confirmed live that field just echoes back the requested productdate
+      // (i.e. the expiry itself), not the actual trading/session date, which
+      // made every tab compute trade date == expiry date -> T=0 always. The
+      // real session date is lastKnownBusdate, captured separately from the
+      // overview call's own header.tradingDates[0].
+      const tradeDate = lastKnownBusdate ? ymdStrToDate(lastKnownBusdate) : null;
+      const t = exp ? yearsToExpiry(exp, tradeDate) : null;
+      if(!base) gexFailReason = 'no resolvable underlying price for this expiry (no future match, no put-call parity, no OI fallback)';
+      else if(t===null) gexFailReason = `no trading-session date available yet — the overview call ${lastOverviewError ? `failed (${lastOverviewError})` : 'hasn\'t completed'}; try again in a moment or hit Refresh`;
+      else if(!(t>0)) gexFailReason = `time-to-expiry is zero or negative (session date ${tradeDate.toDateString()} vs expiry ${exp.date.toDateString()}) — this contract has already expired relative to the current session`;
+      gexResult = (base && t>0) ? computeGexProfile(rows, base.price, t) : null;
+      if(gexResult===null && !gexFailReason) gexFailReason = 'no strikes had settlement data on a usable side';
+      lastGexActiveRange = gexActiveRange(gexResult);
+    }
+
+    const domain = currentDomain(rows);
+    const visible = rows.filter(r=>r.strike>=domain[0] && r.strike<=domain[1]);
+    const drawRows = visible.length>1 ? visible : rows;
+
+    if(chartMetric==='gex'){
+      topLabelEl.textContent = 'GEX';
+      drawGexChart('chartTop', gexResult, domain, und, gexFailReason);
+      if(gexResult && gexResult.netGexTotal!=null){
+        const fmtM = (v)=> (Math.abs(v)>=1e6 ? (v/1e6).toFixed(2)+'M' : v.toFixed(0));
+        gexCaptionEl.textContent = `Net GEX €${fmtM(gexResult.netGexTotal)} · Call Wall ${gexResult.callWall?.toLocaleString('en-US')} · Put Wall ${gexResult.putWall?.toLocaleString('en-US')} · modeled EOD estimate`;
+      } else {
+        gexCaptionEl.textContent = `modeled EOD estimate — unavailable (${gexFailReason||'unknown reason'})`;
+      }
+      gexCaptionEl.style.display = 'inline';
+      wireHover(drawRows, gexResult);
+    } else {
+      topLabelEl.textContent = 'Open Interest';
+      gexCaptionEl.style.display = 'none';
+      drawChart('chartTop', rows, drawRows, 'oi', true, domain, und);
+      wireHover(drawRows, null);
+    }
+    if(chartMetric!=='gex') drawChart('chartBottom', rows, drawRows, 'vol', false, domain, und);
+  } else {
+    topLabelEl.textContent = chartMetric==='gex' ? 'GEX' : 'Open Interest';
+    gexCaptionEl.style.display = 'none';
+    if(chartMetric==='gex'){
+      lastGexActiveRange = null;
+      drawGexChart('chartTop', null, [0,1], null);
+    } else {
+      drawChart('chartTop', [], [], 'oi', true, [0,1]);
+      drawChart('chartBottom', [], [], 'vol', false, [0,1]);
+    }
+  }
+  document.getElementById('zoomResetBtn').style.visibility = viewMin!=null ? 'visible' : 'hidden';
+}
+
+function setLegendForMetric(metric){
+  const hint = '<span class="zoom-hint">mouse wheel / pinch to zoom · drag to pan</span>';
+  const el = document.getElementById('chartLegend');
+  if(metric==='gex'){
+    el.innerHTML =
+      '<span><i class="swatch" style="background:var(--green)"></i>Positive GEX</span>'+
+      '<span><i class="swatch" style="background:var(--red)"></i>Negative GEX</span>'+
+      '<span><i class="swatch" style="background:#b9c2d4"></i>Cumulative GEX</span>'+
+      '<span><i class="swatch" style="background:var(--maxpain)"></i>Gamma Flip</span>'+
+      '<span><i class="swatch" style="background:var(--spot)"></i>DAX</span>'+ hint;
+  } else {
+    el.innerHTML =
+      '<span><i class="swatch" style="background:var(--call)"></i>Call</span>'+
+      '<span><i class="swatch" style="background:var(--put)"></i>Put</span>'+
+      '<span><i class="swatch" style="background:var(--maxpain)"></i>Max Pain</span>'+ hint;
+  }
+}
+
+document.getElementById('metricOiBtn').addEventListener('click', ()=>{
+  if(chartMetric==='oi') return;
+  chartMetric='oi';
+  viewMin=null; viewMax=null; // each mode has its own natural default view (full chain for OI, active band for GEX) — don't carry a zoom from one into the other
+  document.getElementById('metricOiBtn').classList.add('active');
+  document.getElementById('metricGexBtn').classList.remove('active');
+  document.getElementById('metricHeatmapBtn').classList.remove('active');
+  setLegendForMetric('oi');
+  renderAll();
+});
+document.getElementById('metricGexBtn').addEventListener('click', ()=>{
+  if(chartMetric==='gex') return;
+  chartMetric='gex';
+  viewMin=null; viewMax=null;
+  document.getElementById('metricGexBtn').classList.add('active');
+  document.getElementById('metricOiBtn').classList.remove('active');
+  document.getElementById('metricHeatmapBtn').classList.remove('active');
+  setLegendForMetric('gex');
+  renderAll();
+});
+document.getElementById('metricHeatmapBtn').addEventListener('click', ()=>{
+  if(chartMetric==='heatmap') return;
+  chartMetric='heatmap';
+  document.getElementById('metricHeatmapBtn').classList.add('active');
+  document.getElementById('metricOiBtn').classList.remove('active');
+  document.getElementById('metricGexBtn').classList.remove('active');
+  applyChartModeVisibility();
+  heatmapPendingAutoScroll = true; // jump straight to where the price is — don't make them scroll to find it
+  lastHeatmapActiveKey = activeKey;
+  const exp = ALL_EXPIRIES.find(e=>e.key===activeKey);
+  if(exp){ ensureHistoryData(exp); } // all three sub-metrics (OI/OI Change/Volume) share the same session history, so fetch it once on entry, not per sub-button
+  renderHeatmap();
+});
+function setHeatmapSubActive(metric){
+  document.getElementById('heatmapOiBtn').classList.toggle('active', metric==='oi');
+  document.getElementById('heatmapOiChangeBtn').classList.toggle('active', metric==='oichange');
+  document.getElementById('heatmapVolBtn').classList.toggle('active', metric==='volume');
+}
+document.getElementById('heatmapOiBtn').addEventListener('click', ()=>{
+  if(heatmapMetric==='oi') return;
+  heatmapMetric='oi'; setHeatmapSubActive('oi'); renderHeatmap();
+});
+document.getElementById('heatmapVolBtn').addEventListener('click', ()=>{
+  if(heatmapMetric==='volume') return;
+  heatmapMetric='volume'; setHeatmapSubActive('volume'); renderHeatmap();
+});
+document.getElementById('heatmapOiChangeBtn').addEventListener('click', ()=>{
+  if(heatmapMetric==='oichange') return;
+  heatmapMetric='oichange'; setHeatmapSubActive('oichange'); renderHeatmap();
+});
+
+document.getElementById('zoomInBtn').addEventListener('click', ()=>{ const rows=dataStore[activeKey]||[]; if(rows.length) zoomBy(0.6, null, rows); });
+document.getElementById('zoomOutBtn').addEventListener('click', ()=>{ const rows=dataStore[activeKey]||[]; if(rows.length) zoomBy(1/0.6, null, rows); });
+document.getElementById('zoomResetBtn').addEventListener('click', resetZoom);
+
+/* =========================================================
+   IMPORT (raw Eurex JSON or CSV)
+========================================================= */
+function parseCSV(text){
+  return text.split('\n').map(l=>l.trim()).filter(Boolean).map(line=>{
+    const parts = line.split(/[,\t]/).map(p=>p.trim()).filter(p=>p!=='');
+    const [strike,callOI,putOI,callVol,putVol] = parts.map(Number);
+    return {strike, callOI:callOI||0, putOI:putOI||0, callVol:callVol||0, putVol:putVol||0};
+  }).filter(r=>!isNaN(r.strike)).sort((a,b)=>a.strike-b.strike);
+}
+document.getElementById('btnLoad').addEventListener('click', ()=>{
+  const raw = document.getElementById('dataInput').value.trim();
+  const statusMsg = document.getElementById('statusMsg');
+  if(!raw){ statusMsg.textContent = 'Paste data above first.'; return; }
+  try{
+    const json = JSON.parse(raw);
+    const { rows, dateLabel } = parseEurexJson(json);
+    dataStore[activeKey] = rows;
+    metaStore[activeKey] = { source:'manual', dateLabel, checkedAt: Date.now(), error:null };
+    lsSet('data:'+activeKey, rows); lsSet('meta:'+activeKey, metaStore[activeKey]);
+    statusMsg.textContent = `✓ loaded from JSON (${rows.length} strikes)`;
+  }catch(e){
+    const rows = parseCSV(raw);
+    if(!rows.length){ statusMsg.textContent = 'Could not parse as JSON or CSV.'; return; }
+    dataStore[activeKey] = rows;
+    metaStore[activeKey] = { source:'manual', dateLabel:null, checkedAt: Date.now(), error:null };
+    lsSet('data:'+activeKey, rows); lsSet('meta:'+activeKey, metaStore[activeKey]);
+    statusMsg.textContent = `✓ loaded from CSV (${rows.length} rows)`;
+  }
+  viewMin=null; viewMax=null;
+  renderTabs(); renderStatus(); renderAll();
+});
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  dataStore[activeKey] = [];
+  metaStore[activeKey] = { source:'manual', dateLabel:null, checkedAt: Date.now(), error:null };
+  try{ localStorage.removeItem('odax:data:'+activeKey); localStorage.removeItem('odax:meta:'+activeKey); }catch(e){}
+  document.getElementById('dataInput').value='';
+  document.getElementById('statusMsg').textContent='Cleared.';
+  renderTabs(); renderStatus(); renderAll();
+});
+document.getElementById('btnRefreshNow').addEventListener('click', ()=>{ refreshAll({silent:false}); refreshSpotQuote(); });
+document.getElementById('btnSaveProxy').addEventListener('click', ()=>{
+  const v = document.getElementById('proxyUrlInput').value.trim();
+  setProxyBase(v);
+  setStatus('pending', v ? `Proxy saved (${v}), refreshing…` : 'Proxy cleared, refreshing…');
+  refreshAll({silent:false});
+});
+
+/* =========================================================
+   INIT
+========================================================= */
+// One-time cleanup: purge any 'odax:sym:*' overrides saved by the old
+// bare-ticker fallback (removed above) — those entries, if present, point
+// at wrong-exchange securities (e.g. US ADRs instead of XETRA shares) and
+// are never read anymore, but no reason to leave them sitting in storage.
+try{
+  DAX_CONSTITUENTS.forEach(c=> localStorage.removeItem('odax:sym:'+c.name));
+}catch(e){}
+
+document.getElementById('proxyUrlInput').value = getProxyBase();
+document.getElementById('importExpLabel').textContent = WEEKLY_EXP[0].label+' (W)';
+document.getElementById('chartExpiry').textContent = WEEKLY_EXP[0].label;
+document.getElementById('pollLabel').textContent = `ODAX · auto-refresh every ${POLL_MS/60000} min`;
+renderTabs();
+renderStatus();
+renderAll();
+refreshAll({silent:true});
+setInterval(()=>refreshAll({silent:true}), POLL_MS);
+verifyExpiriesViaReferenceApi();
+refreshFuturesMap();
+setInterval(refreshFuturesMap, PRICE_POLL_MS);
+refreshSpotQuote();
+setInterval(refreshSpotQuote, PRICE_POLL_MS);
+</script>
+</body>
+</html>
